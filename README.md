@@ -6,6 +6,9 @@ NiFi Elasticsearch reporting tasks.
 
 - [Installation](#installation)
 - [Tasks](#tasks)
+    - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
+        - [Processor Properties](#processor-properties)
+        - [Example Event](#example-event)
 - [Todo](#todo)
 
 ## Installation
@@ -22,11 +25,18 @@ $ nifi restart
 
 Reporting task to write provenance events to an Elasticsearch index.
 
+#### Processor Properties
+
 ![](elasticsearch_provenance_reporter_properties.png)
+
+#### Example Event
+
+![](elasticsearch_provenance_reporter_event.png)
 
 ## Todo
 
 - Use state management API to keep track of the most recent event indexed by ElasticsearchProvenanceReporter.
+- Use event id + timestamp for document id instead of event id on its own
 
 ## License
 
