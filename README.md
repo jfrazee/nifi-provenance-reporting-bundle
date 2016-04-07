@@ -27,11 +27,11 @@ Reporting task to write provenance events to an Elasticsearch index.
 
 #### Processor Properties
 
-![](elasticsearch_provenance_reporter_properties.png)
+<img src="elasticsearch_provenance_reporter_properties.png" width=600 />
 
 #### Example Event
 
-![](elasticsearch_provenance_reporter_event.png)
+<img src="elasticsearch_provenance_reporter_event.png" width=600 />
 
 ## Todo
 
