@@ -17,6 +17,8 @@
 package com.joeyfrazee.nifi.reporting;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -122,6 +124,38 @@ public class ElasticsearchProvenanceReporter extends AbstractReportingTask {
         return client;
     }
 
+    private Map<String, Object> setDotNotation(Map<String, Object> map, final String key, final Object value, final boolean overwrite) {
+        Pattern p = Pattern.compile("^(\\w+)\\.(.*)$");
+        Matcher m = p.matcher(key);
+        if (m.find()) {
+            String head = m.group(1);
+            String tail = m.group(2);
+            Map<String, Object> obj = (Map<String, Object>) map.get(head);
+            if (obj == null) {
+                obj = new HashMap<String, Object>();
+            }
+            Object v = setDotNotation(obj, tail, value, overwrite);
+            map.put(head, v);
+        }
+        else {
+            Object obj = map.get(key);
+            if (obj != null && (obj instanceof Map)) {
+                getLogger().warn("value at " + key + " is a Map");
+                if (overwrite) {
+                    map.put(key, value);
+                }
+            }
+            else {
+                map.put(key, value);
+            }
+        }
+        return map;
+    }
+
+    private Map<String, Object> setDotNotation(Map<String, Object> map, final String key, final Object value) {
+        return setDotNotation(map, key, value, false);
+    }
+
     private Map<String, Object> createSourceDocument(ProvenanceEventRecord e) {
         final Map<String, Object> source = new HashMap<String, Object>();
 
@@ -192,16 +226,20 @@ public class ElasticsearchProvenanceReporter extends AbstractReportingTask {
             source.put("source_queue_id", sourceQueueId);
         }
 
-        final Map<String, String> attributes = new HashMap<String, String>();
+        final Map<String, Object> attributes = new HashMap<String, Object>();
 
         final Map<String, String> receivedAttributes = e.getAttributes();
         if (receivedAttributes != null && !receivedAttributes.isEmpty()) {
-            attributes.putAll(receivedAttributes);
+            for (Map.Entry<String, String> a : receivedAttributes.entrySet()) {
+                setDotNotation(attributes, a.getKey(), a.getValue());
+            }
         }
 
         final Map<String, String> updatedAttributes = e.getUpdatedAttributes();
         if (updatedAttributes != null && !updatedAttributes.isEmpty()) {
-            attributes.putAll(updatedAttributes);
+            for (Map.Entry<String, String> a : updatedAttributes.entrySet()) {
+                setDotNotation(attributes, a.getKey(), a.getValue());
+            }
         }
 
         source.put("attributes", attributes);
