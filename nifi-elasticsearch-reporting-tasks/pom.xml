@@ -35,10 +35,20 @@
             <artifactId>nifi-processor-utils</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.6.1</version>
+        </dependency>
+        <dependency>
             <groupId>io.searchbox</groupId>
             <artifactId>jest</artifactId>
             <version>2.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>2.7.1</version>
+        </dependency>        
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-mock</artifactId>
