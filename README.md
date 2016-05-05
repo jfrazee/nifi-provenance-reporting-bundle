@@ -9,6 +9,8 @@ NiFi Elasticsearch reporting tasks.
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
         - [Processor Properties](#processor-properties)
         - [Example Event](#example-event)
+    - [HttpProvenanceReporter](#httpprovenancereporter)
+        - [Processor Properties](#processor-properties)
 - [Todo](#todo)
 
 ## Installation
@@ -25,13 +27,23 @@ $ nifi restart
 
 Reporting task to write provenance events to an Elasticsearch index.
 
-#### Processor Properties
+#### Reporting Task Properties
 
 <img src="elasticsearch_provenance_reporter_properties.png" width=600 />
 
 #### Example Event
 
 <img src="elasticsearch_provenance_reporter_event.png" width=600 />
+
+### HttpProvenanceReporter
+
+Reporting task to POST provenance events to an HTTP web service.
+
+#### Reporting Task Properties
+
+This reporting task can be configured to POST provenance events to an arbitrary web service. Here is an example of using it with Solr:
+
+<img src="http_provenance_reporter_properties.png" width=600 />
 
 ## Todo
 

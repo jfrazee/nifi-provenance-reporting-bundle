@@ -19,11 +19,11 @@
     <parent>
         <groupId>com.joeyfrazee.nifi</groupId>
         <artifactId>nifi-elasticsearch-reporting-bundle</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1</version>
     </parent>
 
     <artifactId>nifi-elasticsearch-reporting-nar</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <packaging>nar</packaging>
     <properties>
         <maven.javadoc.skip>true</maven.javadoc.skip>
@@ -34,7 +34,7 @@
         <dependency>
             <groupId>com.joeyfrazee.nifi</groupId>
             <artifactId>nifi-elasticsearch-reporting-tasks</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.0.1</version>
         </dependency>
     </dependencies>
 

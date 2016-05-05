@@ -19,7 +19,7 @@
     <parent>
         <groupId>com.joeyfrazee.nifi</groupId>
         <artifactId>nifi-elasticsearch-reporting-bundle</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1</version>
     </parent>
 
     <artifactId>nifi-elasticsearch-reporting-tasks</artifactId>
@@ -48,7 +48,7 @@
             <groupId>com.squareup.okhttp</groupId>
             <artifactId>okhttp</artifactId>
             <version>2.7.1</version>
-        </dependency>        
+        </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-mock</artifactId>
