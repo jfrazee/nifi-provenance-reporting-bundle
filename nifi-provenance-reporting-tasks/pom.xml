@@ -18,11 +18,11 @@
 
     <parent>
         <groupId>com.joeyfrazee.nifi</groupId>
-        <artifactId>nifi-elasticsearch-reporting-bundle</artifactId>
-        <version>0.0.1</version>
+        <artifactId>nifi-provenance-reporting-bundle</artifactId>
+        <version>0.0.2-SNAPSHOT</version>
     </parent>
 
-    <artifactId>nifi-elasticsearch-reporting-tasks</artifactId>
+    <artifactId>nifi-provenance-reporting-tasks</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>

@@ -1,23 +1,20 @@
-# nifi-elasticsearch-reporting-bundle
+# nifi-provenance-reporting-bundle
 
-NiFi Elasticsearch reporting tasks.
+NiFi provenance reporting tasks.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Tasks](#tasks)
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
-        - [Processor Properties](#processor-properties)
-        - [Example Event](#example-event)
     - [HttpProvenanceReporter](#httpprovenancereporter)
-        - [Processor Properties](#processor-properties)
 - [Todo](#todo)
 
 ## Installation
 
 ```sh
 $ mvn clean package
-$ cp nifi-elasticsearch-reporting-nar/target/nifi-elasticsearch-reporting-nar-0.0.1-SNAPSHOT.nar $NIFI_HOME/lib
+$ cp nifi-provenance-reporting-nar/target/nifi-provenance-reporting-nar-0.0.2-SNAPSHOT.nar $NIFI_HOME/lib
 $ nifi restart
 ```
 
@@ -41,15 +38,24 @@ Reporting task to POST provenance events to an HTTP web service.
 
 #### Reporting Task Properties
 
-This reporting task can be configured to POST provenance events to an arbitrary web service. Here is an example of using it with Solr:
+This reporting task can be configured to POST provenance events to an arbitrary web service. Here is an example of using it with Solr (10s commits):
 
 <img src="http_provenance_reporter_properties.png" width=600 />
 
 ## Todo
 
-- Use state management API to keep track of the most recent event indexed by ElasticsearchProvenanceReporter.
-- Use event id + timestamp for document id instead of event id on its own
+- Use state management API to keep track of the most recently indexed event.
+- Add batching support.
+- Handle child/parent ids.
+- Additional adapters:
+    - HDFS
+    - Tinkerpop
+    - NiFi site-to-site
+- Optional inclusion of FlowFile contents.
+- Create provenance event for runs of the reporting task.
+- Example schemas/mappings for data sources (Elasticsearch mapping, Solr schema, JSON schema).
+- Add testing.
 
 ## License
 
-Copyright (c) 2016 Joey Frazee. nifi-elasticsearch-reporting-bundle is released under the Apache License Version 2.0.
+Copyright (c) 2016 Joey Frazee. nifi-provenance-reporting-bundle is released under the Apache License Version 2.0.

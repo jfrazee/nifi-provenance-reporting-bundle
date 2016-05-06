@@ -23,13 +23,13 @@
     </parent>
 
     <groupId>com.joeyfrazee.nifi</groupId>
-    <artifactId>nifi-elasticsearch-reporting-bundle</artifactId>
-    <version>0.0.1</version>
+    <artifactId>nifi-provenance-reporting-bundle</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-elasticsearch-reporting-tasks</module>
-        <module>nifi-elasticsearch-reporting-nar</module>
+        <module>nifi-provenance-reporting-tasks</module>
+        <module>nifi-provenance-reporting-nar</module>
     </modules>
 
     <build>
