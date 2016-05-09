@@ -44,9 +44,7 @@ This reporting task can be configured to POST provenance events to an arbitrary 
 
 ## Todo
 
-- Use state management API to keep track of the most recently indexed event.
 - Add batching support.
-- Handle child/parent ids.
 - Additional adapters:
     - HDFS
     - Tinkerpop
