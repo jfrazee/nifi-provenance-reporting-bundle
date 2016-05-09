@@ -24,6 +24,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
+import org.apache.nifi.components.state.Scope;
+import org.apache.nifi.components.state.StateManager;
+import org.apache.nifi.components.state.StateMap;
+import org.apache.nifi.annotation.behavior.Stateful;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
@@ -38,9 +42,12 @@ import org.apache.nifi.provenance.ProvenanceEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Stateful(scopes = Scope.CLUSTER, description = "After performing a query on the specified table, the maximum values for "
+        + "the specified column(s) will be retained for use in future executions of the query. This allows the Processor "
+        + "to fetch only those records that have max values greater than the retained values. This can be used for "
+        + "incremental fetching, fetching of newly added rows, etc. To clear the maximum values, clear the state of the processor "
+        + "per the State Management documentation")
 public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
-    private AtomicLong lastEventId = new AtomicLong(0);
-
     public static final PropertyDescriptor PAGE_SIZE = new PropertyDescriptor
             .Builder().name("Page Size")
             .description("Page size for scrolling through the provenance repository")
@@ -62,12 +69,24 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
     protected List<PropertyDescriptor> descriptors;
 
-    private long getLastEventId() {
-        return lastEventId.get();
+    private long getLastEventId(StateManager stateManager) {
+        try {
+            final StateMap stateMap = stateManager.getState(Scope.CLUSTER);
+            final String lastEventIdStr = stateMap.get("lastEventId");
+            final long lastEventId = lastEventIdStr != null ? Long.parseLong(lastEventIdStr) : 0;
+            return lastEventId;
+        } catch (final IOException ioe) {
+            getLogger().warn("Failed to retrieve the last event id from the "
+                    + "state manager.", ioe);
+            return 0;
+        }
     }
 
-    private void setLastEventId(long eventId) {
-        lastEventId.set(eventId);
+    private void setLastEventId(StateManager stateManager, long eventId) throws IOException {
+        final StateMap stateMap = stateManager.getState(Scope.CLUSTER);
+        final Map<String, String> statePropertyMap = new HashMap<>(stateMap.toMap());
+        statePropertyMap.put("lastEventId", Long.toString(eventId));
+        stateManager.setState(statePropertyMap, Scope.CLUSTER);
     }
 
     private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value, final boolean overwrite) {
@@ -205,6 +224,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
     @Override
     public void onTrigger(final ReportingContext context) {
+        final StateManager stateManager = context.getStateManager();
         final EventAccess access = context.getEventAccess();
         final ProvenanceEventRepository provenance = access.getProvenanceRepository();
         final Long maxEventId = provenance.getMaxEventId();
@@ -213,20 +233,28 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         final int maxHistory = Integer.parseInt(context.getProperty(MAX_HISTORY).getValue());
 
         try {
-            while (maxEventId != null && getLastEventId() < maxEventId.longValue()) {
-                if ((maxEventId.longValue() - getLastEventId()) > maxHistory) {
-                    setLastEventId(maxEventId.longValue() - maxHistory);
+            long lastEventId = getLastEventId(stateManager);
+
+            getLogger().info("starting event id: " + Long.toString(lastEventId));
+
+            while (maxEventId != null && lastEventId < maxEventId.longValue()) {
+                if (maxHistory > 0 && (maxEventId.longValue() - lastEventId) > maxHistory) {
+                    lastEventId = maxEventId.longValue() - maxHistory;
                 }
 
-                final List<ProvenanceEventRecord> events = provenance.getEvents(getLastEventId(), pageSize);
+                final List<ProvenanceEventRecord> events = provenance.getEvents(lastEventId, pageSize);
 
                 for (ProvenanceEventRecord e : events) {
                     final Map<String, Object> event = createEventMap(e);
                     indexEvent(event, context);
                 }
 
-                setLastEventId(Math.min(getLastEventId() + pageSize, maxEventId.longValue()));
+                lastEventId = Math.min(lastEventId + pageSize, maxEventId.longValue());
             }
+
+            getLogger().info("ending event id: " + Long.toString(lastEventId));
+
+            setLastEventId(stateManager, lastEventId);
         }
         catch (IOException e) {
             getLogger().error(e.getMessage(), e);
