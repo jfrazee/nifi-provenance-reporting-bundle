@@ -42,11 +42,11 @@ import org.apache.nifi.provenance.ProvenanceEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Stateful(scopes = Scope.CLUSTER, description = "After performing a query on the specified table, the maximum values for "
-        + "the specified column(s) will be retained for use in future executions of the query. This allows the Processor "
-        + "to fetch only those records that have max values greater than the retained values. This can be used for "
-        + "incremental fetching, fetching of newly added rows, etc. To clear the maximum values, clear the state of the processor "
-        + "per the State Management documentation")
+@Stateful(scopes = Scope.CLUSTER, description = "After querying the "
+        + "provenance repository, the last seen event id is stored so "
+        + "reporting can persist across restarts of the reporting task or "
+        + "NiFi. To clear the maximum values, clear the state of the processor "
+        + "per the State Management documentation.")
 public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
     public static final PropertyDescriptor PAGE_SIZE = new PropertyDescriptor
             .Builder().name("Page Size")
