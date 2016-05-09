@@ -48,6 +48,7 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
 
     public static final PropertyDescriptor URL = new PropertyDescriptor
             .Builder().name("URL")
+            .displayName("URL")
             .description("The URL to post to")
             .required(true)
             .addValidator(StandardValidators.URL_VALIDATOR)

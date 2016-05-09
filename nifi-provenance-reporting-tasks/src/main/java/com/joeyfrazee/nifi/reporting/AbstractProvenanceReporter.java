@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
     public static final PropertyDescriptor PAGE_SIZE = new PropertyDescriptor
             .Builder().name("Page Size")
+            .displayName("Page Size")
             .description("Page size for scrolling through the provenance repository")
             .required(true)
             .defaultValue("100")
@@ -58,6 +59,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
     public static final PropertyDescriptor MAX_HISTORY = new PropertyDescriptor
             .Builder().name("Maximum History")
+            .displayName("Maximum History")
             .description(
                 "How far back to look into the provenance repository to " +
                 "index provenance events"

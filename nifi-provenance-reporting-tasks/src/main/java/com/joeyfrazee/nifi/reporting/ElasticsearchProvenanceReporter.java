@@ -38,6 +38,7 @@ import io.searchbox.client.config.*;
 public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {
     public static final PropertyDescriptor ELASTICSEARCH_URL = new PropertyDescriptor
             .Builder().name("Elasticsearch URL")
+            .displayName("Elasticsearch URL")
             .description("The address for Elasticsearch")
             .required(true)
             .defaultValue("http://localhost:9200")
@@ -46,6 +47,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
 
     public static final PropertyDescriptor ELASTICSEARCH_INDEX = new PropertyDescriptor
             .Builder().name("Index")
+            .displayName("Index")
             .description("The name of the Elasticsearch index")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -53,6 +55,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
 
     public static final PropertyDescriptor ELASTICSEARCH_DOC_TYPE = new PropertyDescriptor
             .Builder().name("Document Type")
+            .displayName("Document Type")
             .description("The type of documents to insert into the index")
             .required(true)
             .expressionLanguageSupported(true)
