@@ -66,7 +66,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             )
             .required(true)
             .defaultValue("10000")
-            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .build();
 
     protected List<PropertyDescriptor> descriptors;
@@ -241,7 +241,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
             while (maxEventId != null && lastEventId < maxEventId.longValue()) {
                 if (maxHistory > 0 && (maxEventId.longValue() - lastEventId) > maxHistory) {
-                    lastEventId = maxEventId.longValue() - maxHistory;
+                    lastEventId = maxEventId.longValue() - maxHistory + 1;
                 }
 
                 final List<ProvenanceEventRecord> events = provenance.getEvents(lastEventId, pageSize);
