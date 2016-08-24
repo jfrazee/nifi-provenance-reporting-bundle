@@ -50,6 +50,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Index")
             .description("The name of the Elasticsearch index")
             .required(true)
+            .expressionLanguageSupported(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -87,8 +88,8 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
         final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
-        final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).getValue();
-        final String elasticsearchType = context.getProperty(ELASTICSEARCH_DOC_TYPE).getValue();
+        final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions().getValue();
+        final String elasticsearchType = context.getProperty(ELASTICSEARCH_DOC_TYPE).evaluateAttributeExpressions().getValue();
         final JestClient client = getJestClient(elasticsearchUrl);
         final String id = Long.toString((Long) event.get("event_id"));
         final Index index = new Index.Builder(event)
