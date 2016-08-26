@@ -17,6 +17,7 @@
 package com.joeyfrazee.nifi.reporting;
 
 import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -125,7 +126,9 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
     private Map<String, Object> createEventMap(ProvenanceEventRecord e) {
         final Map<String, Object> source = new HashMap<String, Object>();
+        final SimpleDateFormat ft = new SimpleDateFormat ("YYYY-MM-dd'T'HH:mm:ss.SSS'Z'");
 
+        source.put("@timestamp", ft.format(new Date()));
         source.put("event_id", Long.valueOf(e.getEventId()));
         source.put("event_time", new Date(e.getEventTime()));
         source.put("entry_date", new Date(e.getFlowFileEntryDate()));
