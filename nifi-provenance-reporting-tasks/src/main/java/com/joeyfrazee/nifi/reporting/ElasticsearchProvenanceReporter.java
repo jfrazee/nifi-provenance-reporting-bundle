@@ -16,22 +16,20 @@
  */
 package com.joeyfrazee.nifi.reporting;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.*;
+import io.searchbox.client.JestClient;
+import io.searchbox.client.JestClientFactory;
+import io.searchbox.client.config.HttpClientConfig;
+import io.searchbox.core.Index;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
 
-import io.searchbox.core.*;
-import io.searchbox.client.*;
-import io.searchbox.client.config.*;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
@@ -50,7 +48,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Index")
             .description("The name of the Elasticsearch index")
             .required(true)
-            .expressionLanguageSupported(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -59,7 +57,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Document Type")
             .description("The type of documents to insert into the index")
             .required(true)
-            .expressionLanguageSupported(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -72,9 +70,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                 .build()
         );
 
-        JestClient client = factory.getObject();
-
-        return client;
+        return factory.getObject();
     }
 
     @Override
