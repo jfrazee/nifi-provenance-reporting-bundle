@@ -16,11 +16,16 @@
  */
 package com.joeyfrazee.nifi.reporting;
 
+import co.elastic.clients.transport.TransportUtils;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
 
+import javax.net.ssl.SSLContext;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -42,7 +47,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch URL")
             .description("The address for Elasticsearch")
             .required(true)
-            .defaultValue("http://localhost:9200")
+            .defaultValue("https://localhost:9200")
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
@@ -55,14 +60,48 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-    private ElasticsearchClient getElasticsearchClient(URL elasticsearchUrl) {
+    public static final PropertyDescriptor ELASTICSEARCH_CA_CERT_FINGERPRINT = new PropertyDescriptor
+            .Builder().name("CA Certificate Fingerprint")
+            .displayName("CA Certificate Fingerprint")
+            .description("The HTTP CA certificate SHA-256 fingerprint for Elasticsearch")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor ELASTICSEARCH_USER = new PropertyDescriptor
+            .Builder().name("Username")
+            .displayName("Username")
+            .description("The username for Elasticsearch authentication")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor ELASTICSEARCH_PASSWORD = new PropertyDescriptor
+            .Builder().name("Password")
+            .displayName("Password")
+            .description("The password for Elasticsearch authentication")
+            .required(true)
+            .sensitive(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    private ElasticsearchClient getElasticsearchClient(URL url, String fingerprint, String username, String password) {
+        SSLContext sslContext = TransportUtils.sslContextFromCaFingerprint(fingerprint);
+
+        BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
+        credsProv.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+
         // Create the low-level client
-        RestClient restClient = RestClient.builder(
-                new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort())).build();
+        RestClient restClient = RestClient
+                .builder(new HttpHost(url.getHost(), url.getPort(), "https"))
+                .setHttpClientConfigCallback(hc -> hc
+                        .setSSLContext(sslContext)
+                        .setDefaultCredentialsProvider(credsProv)
+                )
+                .build();
 
         // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(
-                restClient, new JacksonJsonpMapper());
+        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
 
         // And create the API client
         ElasticsearchClient client = new ElasticsearchClient(transport);
@@ -75,6 +114,9 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         descriptors = super.getSupportedPropertyDescriptors();
         descriptors.add(ELASTICSEARCH_URL);
         descriptors.add(ELASTICSEARCH_INDEX);
+        descriptors.add(ELASTICSEARCH_CA_CERT_FINGERPRINT);
+        descriptors.add(ELASTICSEARCH_USER);
+        descriptors.add(ELASTICSEARCH_PASSWORD);
         return descriptors;
     }
 
@@ -82,7 +124,11 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
         final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions()
                 .getValue();
-        final ElasticsearchClient client = getElasticsearchClient(new URL(elasticsearchUrl));
+        final String elasticsearchCACertFingerprint = context.getProperty(ELASTICSEARCH_CA_CERT_FINGERPRINT).getValue();
+        final String elasticsearchUser = context.getProperty(ELASTICSEARCH_USER).getValue();
+        final String elasticsearchPassword = context.getProperty(ELASTICSEARCH_PASSWORD).getValue();
+        final ElasticsearchClient client = getElasticsearchClient(new URL(elasticsearchUrl),
+                elasticsearchCACertFingerprint, elasticsearchUser, elasticsearchPassword);
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest = new IndexRequest.Builder<Map<String, Object>>()
                 .index(elasticsearchIndex)
