@@ -49,7 +49,7 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
-    private AtomicReference<OkHttpClient> client = new AtomicReference<OkHttpClient>();
+    private final AtomicReference<OkHttpClient> client = new AtomicReference<>();
 
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -68,13 +68,13 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
     }
 
     private void post(String json, String url) throws IOException {
-        RequestBody body = RequestBody.create(JSON, json);
-        Request request = new Request.Builder()
+        final RequestBody body = RequestBody.create(JSON, json);
+        final Request request = new Request.Builder()
             .url(url)
             .post(body)
             .build();
-        Response response = getHttpClient().newCall(request).execute();
-        getLogger().info("{} {} {}", new Object[]{Integer.valueOf(response.code()), response.message(), response.body().string()});
+        final Response response = getHttpClient().newCall(request).execute();
+        getLogger().info("{} {} {}", new Object[]{response.code(), response.message(), response.body().string()});
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {

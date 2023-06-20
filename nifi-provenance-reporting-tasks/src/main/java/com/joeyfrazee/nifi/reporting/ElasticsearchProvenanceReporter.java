@@ -86,13 +86,13 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .build();
 
     private ElasticsearchClient getElasticsearchClient(URL url, String fingerprint, String username, String password) {
-        SSLContext sslContext = TransportUtils.sslContextFromCaFingerprint(fingerprint);
+        final SSLContext sslContext = TransportUtils.sslContextFromCaFingerprint(fingerprint);
 
-        BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
+        final BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
         credsProv.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
 
         // Create the low-level client
-        RestClient restClient = RestClient
+        final RestClient restClient = RestClient
                 .builder(new HttpHost(url.getHost(), url.getPort(), "https"))
                 .setHttpClientConfigCallback(hc -> hc
                         .setSSLContext(sslContext)
@@ -101,11 +101,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                 .build();
 
         // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        final ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
 
-        // And create the API client
-        ElasticsearchClient client = new ElasticsearchClient(transport);
-
+        // Create the API client.
+        final ElasticsearchClient client = new ElasticsearchClient(transport);
         return client;
     }
 
