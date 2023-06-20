@@ -46,7 +46,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             .displayName("Page Size")
             .description("Page size for scrolling through the provenance repository")
             .required(true)
-            .defaultValue("100")
+            .defaultValue(EnvironmentVariable.PAGE_SIZE.getValue() != null ? EnvironmentVariable.PAGE_SIZE.getValue() : "100")
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .build();
 
@@ -58,7 +58,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
                 "index provenance events"
             )
             .required(true)
-            .defaultValue("10000")
+            .defaultValue(EnvironmentVariable.MAXIMUM_HISTORY.getValue() != null ? EnvironmentVariable.MAXIMUM_HISTORY.getValue() : "10000")
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .build();
 

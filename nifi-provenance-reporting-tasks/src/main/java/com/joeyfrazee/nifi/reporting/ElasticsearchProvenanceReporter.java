@@ -47,7 +47,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch URL")
             .description("The address for Elasticsearch")
             .required(true)
-            .defaultValue("http://localhost:9200")
+            .defaultValue(EnvironmentVariable.ELASTICSEARCH_URL.getValue() != null ? EnvironmentVariable.ELASTICSEARCH_URL.getValue() : "http://localhost:9200")
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
@@ -56,7 +56,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch Index")
             .description("The name of the Elasticsearch index")
             .required(true)
-            .defaultValue("nifi")
+            .defaultValue(EnvironmentVariable.ELASTICSEARCH_INDEX.getValue() != null ? EnvironmentVariable.ELASTICSEARCH_INDEX.getValue() : "nifi")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -64,6 +64,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .Builder().name("Elasticsearch CA Certificate Fingerprint")
             .displayName("Elasticsearch CA Certificate Fingerprint")
             .description("The HTTP CA certificate SHA-256 fingerprint for Elasticsearch")
+            .defaultValue(EnvironmentVariable.ELASTICSEARCH_CA_CERT_FINGERPRINT.getValue())
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -71,6 +72,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .Builder().name("Elasticsearch Username")
             .displayName("Elasticsearch Username")
             .description("The username for Elasticsearch authentication")
+            .defaultValue(EnvironmentVariable.ELASTICSEARCH_USERNAME.getValue())
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -79,6 +81,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch Password")
             .description("The password for Elasticsearch authentication")
             .sensitive(true)
+            .defaultValue(EnvironmentVariable.ELASTICSEARCH_PASSWORD.getValue())
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
