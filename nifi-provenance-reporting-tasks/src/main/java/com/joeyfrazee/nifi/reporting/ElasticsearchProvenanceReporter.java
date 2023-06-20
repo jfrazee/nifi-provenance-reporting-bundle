@@ -47,13 +47,13 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch URL")
             .description("The address for Elasticsearch")
             .required(true)
-            .defaultValue("https://localhost:9200")
+            .defaultValue("http://localhost:9200")
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor ELASTICSEARCH_INDEX = new PropertyDescriptor
-            .Builder().name("Index")
-            .displayName("Index")
+            .Builder().name("Elasticsearch Index")
+            .displayName("Elasticsearch Index")
             .description("The name of the Elasticsearch index")
             .required(true)
             .defaultValue("nifi")
@@ -61,53 +61,42 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .build();
 
     public static final PropertyDescriptor ELASTICSEARCH_CA_CERT_FINGERPRINT = new PropertyDescriptor
-            .Builder().name("CA Certificate Fingerprint")
-            .displayName("CA Certificate Fingerprint")
+            .Builder().name("Elasticsearch CA Certificate Fingerprint")
+            .displayName("Elasticsearch CA Certificate Fingerprint")
             .description("The HTTP CA certificate SHA-256 fingerprint for Elasticsearch")
-            .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor ELASTICSEARCH_USER = new PropertyDescriptor
-            .Builder().name("Username")
-            .displayName("Username")
+            .Builder().name("Elasticsearch Username")
+            .displayName("Elasticsearch Username")
             .description("The username for Elasticsearch authentication")
-            .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor ELASTICSEARCH_PASSWORD = new PropertyDescriptor
-            .Builder().name("Password")
-            .displayName("Password")
+            .Builder().name("Elasticsearch Password")
+            .displayName("Elasticsearch Password")
             .description("The password for Elasticsearch authentication")
-            .required(true)
             .sensitive(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-    private ElasticsearchClient getElasticsearchClient(URL url, String fingerprint, String username, String password) {
-        final SSLContext sslContext = TransportUtils.sslContextFromCaFingerprint(fingerprint);
-
-        final BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-        credsProv.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
-
-        // Create the low-level client
-        final RestClient restClient = RestClient
-                .builder(new HttpHost(url.getHost(), url.getPort(), "https"))
-                .setHttpClientConfigCallback(hc -> hc
-                        .setSSLContext(sslContext)
-                        .setDefaultCredentialsProvider(credsProv)
-                )
-                .build();
-
-        // Create the transport with a Jackson mapper
-        final ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
-
-        // Create the API client.
-        final ElasticsearchClient client = new ElasticsearchClient(transport);
-        return client;
+    private RestClient getRestClient(URL url) {
+        return RestClient.builder(new HttpHost(url.getHost(), url.getPort())).build();
     }
 
+    /**
+     * Create an Elasticsearch client from the given Elasticsearch REST client.
+     *
+     * @param restClient The Elasticsearch REST client.
+     * @return The ElasticsearchClient object.
+     */
+    private ElasticsearchClient getElasticsearchClient(RestClient restClient) {
+        final ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        return new ElasticsearchClient(transport);
+    }
+    
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         descriptors = super.getSupportedPropertyDescriptors();
@@ -120,14 +109,20 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
-        final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
+        // Get properties from context.
+        final URL elasticsearchUrl = new URL(context.getProperty(ELASTICSEARCH_URL).getValue());
         final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions()
                 .getValue();
         final String elasticsearchCACertFingerprint = context.getProperty(ELASTICSEARCH_CA_CERT_FINGERPRINT).getValue();
         final String elasticsearchUser = context.getProperty(ELASTICSEARCH_USER).getValue();
         final String elasticsearchPassword = context.getProperty(ELASTICSEARCH_PASSWORD).getValue();
-        final ElasticsearchClient client = getElasticsearchClient(new URL(elasticsearchUrl),
-                elasticsearchCACertFingerprint, elasticsearchUser, elasticsearchPassword);
+
+        // Create the Elasticsearch API client.
+        final String protocol = elasticsearchUrl.getProtocol();
+        final RestClient restClient = (protocol.equals("https")) ? getSecureRestClient(elasticsearchUrl, elasticsearchCACertFingerprint, elasticsearchUser, elasticsearchPassword) : getRestClient(elasticsearchUrl);
+        final ElasticsearchClient client = getElasticsearchClient(restClient);
+
+        // Index the event.
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest = new IndexRequest.Builder<Map<String, Object>>()
                 .index(elasticsearchIndex)
