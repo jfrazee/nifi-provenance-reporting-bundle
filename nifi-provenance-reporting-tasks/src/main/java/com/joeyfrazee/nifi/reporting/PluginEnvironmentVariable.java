@@ -1,11 +1,13 @@
 package com.joeyfrazee.nifi.reporting;
 
+import java.util.Optional;
+
 /**
  * Enum representing environment variables that can be used for configuration of default values.
  *
  * @author brightSPARK Labs
  */
-public enum EnvironmentVariable {
+public enum PluginEnvironmentVariable {
     PAGE_SIZE("PAGE_SIZE"),
     MAXIMUM_HISTORY("MAXIMUM_HISTORY"),
     ELASTICSEARCH_URL("ELASTICSEARCH_URL"),
@@ -17,7 +19,7 @@ public enum EnvironmentVariable {
 
     private final String name;
 
-    EnvironmentVariable(final String name) {
+    PluginEnvironmentVariable(final String name) {
         this.name = name;
     }
 
@@ -26,7 +28,7 @@ public enum EnvironmentVariable {
      *
      * @return The value of the environment variable, or null if it has no value.
      */
-    public String getValue() {
-        return System.getenv(name);
+    public Optional<String> getValue() {
+        return Optional.ofNullable(System.getenv(name));
     }
 }
