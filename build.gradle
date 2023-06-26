@@ -1,0 +1,55 @@
+/*
+ * Created brightSPARK Labs
+ * www.brightsparklabs.com
+ */
+
+// -----------------------------------------------------------------------------
+// PLUGINS
+// -----------------------------------------------------------------------------
+
+plugins {
+    // Apply the Java Library plugin.
+    id 'java-library'
+    // Apply the Gradle nar plugin to build the .nar file.
+    id 'io.github.lhotari.gradle-nar-plugin' version '0.5.1'
+}
+
+// -----------------------------------------------------------------------------
+// REPOSITORIES
+// -----------------------------------------------------------------------------
+
+repositories {
+    // Use mavenCentral for resolving dependencies.
+    mavenCentral()
+}
+
+// -----------------------------------------------------------------------------
+// DEPENDENCIES
+// -----------------------------------------------------------------------------
+
+ext {
+    NIFI_VERSION = "1.9.2"
+}
+
+dependencies {
+    api "org.apache.nifi:nifi-processor-utils:${NIFI_VERSION}"
+    api 'co.elastic.clients:elasticsearch-java:8.8.1'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    api 'com.squareup.okhttp:okhttp:2.7.1'
+    compileOnly "org.apache.nifi:nifi-api:${NIFI_VERSION}"
+}
+
+// -----------------------------------------------------------------------------
+// JAVA VERSION
+// -----------------------------------------------------------------------------
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+// -----------------------------------------------------------------------------
+// PROJECT IDENTIFICATION
+// -----------------------------------------------------------------------------
+
+project.description = 'NiFi bundle for reporting provenance data.'
+group = 'com.brightsparklabs'
+version = '0.0.2-SNAPSHOT'
