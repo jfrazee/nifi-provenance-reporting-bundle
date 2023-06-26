@@ -36,11 +36,11 @@ repositories {
 // -----------------------------------------------------------------------------
 
 ext {
-    NIFI_VERSION = "1.9.2"
+    NIFI_VERSION = "1.22.0"
 }
 
 dependencies {
-    api "org.apache.nifi:nifi-processor-utils:${NIFI_VERSION}"
+    api "org.apache.nifi:nifi-utils:${NIFI_VERSION}"
     api 'co.elastic.clients:elasticsearch-java:8.8.1'
     api 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
     api 'com.squareup.okhttp:okhttp:2.7.1'
@@ -51,8 +51,8 @@ dependencies {
 // JAVA VERSION
 // -----------------------------------------------------------------------------
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 17
+targetCompatibility = 17
 
 // -----------------------------------------------------------------------------
 // PROJECT IDENTIFICATION
