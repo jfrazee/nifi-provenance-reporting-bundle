@@ -16,7 +16,7 @@ NiFi provenance reporting tasks.
 
 ```sh
 $ gradle nar
-$ cp build/libs/nifi-provenance-reporting-nar-0.0.2-SNAPSHOT.nar $NIFI_HOME/lib
+$ cp build/libs/nifi-provenance-reporting-nar-<version>.nar $NIFI_HOME/lib
 $ nifi restart
 ```
 

@@ -52,4 +52,4 @@ targetCompatibility = 1.8
 
 project.description = 'NiFi bundle for reporting provenance data.'
 group = 'com.brightsparklabs'
-version = '0.0.2-SNAPSHOT'
+version = 'git describe --dirty --always'.execute().text.trim()
