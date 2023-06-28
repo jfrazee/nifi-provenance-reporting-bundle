@@ -41,11 +41,15 @@ import org.apache.nifi.provenance.ProvenanceEventType;
         + "NiFi. To clear the maximum values, clear the state of the processor "
         + "per the State Management documentation.")
 public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
+    // -------------------------------------------------------------------------
+    // CONSTANTS
+    // -------------------------------------------------------------------------
+
     /** The page size for scrolling through the provenance repository. */
     public static final PropertyDescriptor PAGE_SIZE = new PropertyDescriptor
             .Builder().name("Page Size")
             .displayName("Page Size")
-            .description("Page size for scrolling through the provenance repository.")
+            .description("Page size for scrolling through the provenance repository."+defaultEnvironmentVariableDescription(PluginEnvironmentVariable.PAGE_SIZE))
             .required(true)
             .defaultValue(PluginEnvironmentVariable.PAGE_SIZE.getValue().orElse("100"))
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
@@ -55,14 +59,94 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
     public static final PropertyDescriptor MAX_HISTORY = new PropertyDescriptor
             .Builder().name("Maximum History")
             .displayName("Maximum History")
-            .description("How far back to look into the provenance repository to index provenance events.")
+            .description("How far back to look into the provenance repository to index provenance events."+defaultEnvironmentVariableDescription(PluginEnvironmentVariable.MAXIMUM_HISTORY))
             .required(true)
             .defaultValue(PluginEnvironmentVariable.MAXIMUM_HISTORY.getValue().orElse("10000"))
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .build();
 
+    // -------------------------------------------------------------------------
+    // INSTANCE VARIABLES
+    // -------------------------------------------------------------------------
+
     /** The list of PropertyDescriptor objects this reporting task supports. */
     protected List<PropertyDescriptor> descriptors;
+
+    // -------------------------------------------------------------------------
+    // PUBLIC METHODS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Helper function for generating PropertyDescriptor descriptions. Specifies the environment variable used to
+     * configure the default value.
+     *
+     * @param envVar The environment variable.
+     * @return The formatted description string.
+     */
+    public static String defaultEnvironmentVariableDescription(PluginEnvironmentVariable envVar) {
+        // NOTE: NiFi descriptions display newline characters as spaces in the UI, so formatting options are limited.
+        return " Defaults to the value of the `"+envVar.getName()+"` environment variable.";
+    }
+
+    @Override
+    public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
+        descriptors.add(PAGE_SIZE);
+        descriptors.add(MAX_HISTORY);
+        return descriptors;
+    }
+
+    /**
+     * Index an event.
+     *
+     * @param event The event to index.
+     * @param context The reporting context.
+     * @throws IOException If indexing fails.
+     */
+    public abstract void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException;
+
+    @Override
+    public void onTrigger(final ReportingContext context) {
+        final StateManager stateManager = context.getStateManager();
+        final EventAccess access = context.getEventAccess();
+        final ProvenanceEventRepository provenance = access.getProvenanceRepository();
+        final Long maxEventId = provenance.getMaxEventId();
+
+        final int pageSize = Integer.parseInt(context.getProperty(PAGE_SIZE).getValue());
+        final int maxHistory = Integer.parseInt(context.getProperty(MAX_HISTORY).getValue());
+
+        try {
+            long lastEventId = getLastEventId(stateManager);
+
+            getLogger().info("starting event id: " + lastEventId);
+
+            while (maxEventId != null && lastEventId < maxEventId) {
+                if (maxHistory > 0 && (maxEventId - lastEventId) > maxHistory) {
+                    lastEventId = maxEventId - maxHistory + 1;
+                }
+
+                final List<ProvenanceEventRecord> events = provenance.getEvents(lastEventId, pageSize);
+
+                for (ProvenanceEventRecord e : events) {
+                    final Map<String, Object> event = createEventMap(e);
+                    indexEvent(event, context);
+                }
+
+                lastEventId = Math.min(lastEventId + pageSize, maxEventId);
+            }
+
+            getLogger().info("ending event id: " + lastEventId);
+
+            setLastEventId(stateManager, lastEventId);
+        }
+        catch (IOException e) {
+            getLogger().error(e.getMessage(), e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // PRIVATE METHODS
+    // -------------------------------------------------------------------------
 
     /**
      * Get the last event ID from the given state manager.
@@ -81,77 +165,6 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
                     + "state manager.", ioe);
             return 0;
         }
-    }
-
-    /**
-     * Set the last event ID for the given state manager.
-     *
-     * @param stateManager The state manager to set the last event ID of.
-     * @param eventId The event ID to set.
-     * @throws IOException If unable to get the state of the state manager.
-     */
-    private void setLastEventId(StateManager stateManager, long eventId) throws IOException {
-        final StateMap stateMap = stateManager.getState(Scope.CLUSTER);
-        final Map<String, String> statePropertyMap = new HashMap<>(stateMap.toMap());
-        statePropertyMap.put("lastEventId", Long.toString(eventId));
-        stateManager.setState(statePropertyMap, Scope.CLUSTER);
-    }
-
-    /**
-     * Set the given key to the given value for the given map.
-     * Keys containing nested values (e.g. "head.tail") are expanded.
-     *
-     * @param map The map.
-     * @param key The key.
-     * @param value The value.
-     * @param overwrite Whether to overwrite existing nested maps with the given value.
-     * @return The modified map.
-     */
-    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value, final boolean overwrite) {
-        // Match patterns of form "head.tail" to ensure nested values are properly parsed.
-        final Pattern pattern = Pattern.compile("^(\\w+)\\.(.*)$");
-        final Matcher matcher = pattern.matcher(key);
-        if (matcher.find()) {
-            // The key points to a nested value, so expand nested values.
-            final String head = matcher.group(1);
-            final String tail = matcher.group(2);
-            Map<String, Object> obj = (Map<String, Object>) map.get(head);
-            if (obj == null) {
-                obj = new HashMap<>();
-            }
-            final Object v = setField(obj, tail, value, overwrite);
-            map.put(head, v);
-        }
-        else {
-            // The key is a single value, so parse normally.
-            final Object obj = map.get(key);
-            // Check whether the key points to a nested map.
-            if (obj instanceof Map) {
-                getLogger().warn("value at " + key + " is a Map");
-                // Overwrite the existing map if allowed.
-                if (overwrite) {
-                    map.put(key, value);
-                }
-            }
-            else {
-                // Default to setting key=value.
-                map.put(key, value);
-            }
-        }
-        return map;
-    }
-
-    /**
-     * Set the given key to the given value for the given map.
-     * Keys containing nested values (e.g. "head.tail") are expanded.
-     *
-     * @param map The map.
-     * @param key The key.
-     * @param value The value.
-     * @return The modified map.
-     */
-    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value) {
-        return setField(map, key, value, false);
     }
 
     /**
@@ -253,59 +266,74 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         return source;
     }
 
-    @Override
-    public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        final List<PropertyDescriptor> descriptors = new ArrayList<>();
-        descriptors.add(PAGE_SIZE);
-        descriptors.add(MAX_HISTORY);
-        return descriptors;
+    /**
+     * Set the given key to the given value for the given map.
+     * Keys containing nested values (e.g. "head.tail") are expanded.
+     *
+     * @param map The map.
+     * @param key The key.
+     * @param value The value.
+     * @return The modified map.
+     */
+    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value) {
+        return setField(map, key, value, false);
     }
 
     /**
-     * Index an event.
+     * Set the given key to the given value for the given map.
+     * Keys containing nested values (e.g. "head.tail") are expanded.
      *
-     * @param event The event to index.
-     * @param context The reporting context.
-     * @throws IOException If indexing fails.
+     * @param map The map.
+     * @param key The key.
+     * @param value The value.
+     * @param overwrite Whether to overwrite existing nested maps with the given value.
+     * @return The modified map.
      */
-    public abstract void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException;
-
-    @Override
-    public void onTrigger(final ReportingContext context) {
-        final StateManager stateManager = context.getStateManager();
-        final EventAccess access = context.getEventAccess();
-        final ProvenanceEventRepository provenance = access.getProvenanceRepository();
-        final Long maxEventId = provenance.getMaxEventId();
-
-        final int pageSize = Integer.parseInt(context.getProperty(PAGE_SIZE).getValue());
-        final int maxHistory = Integer.parseInt(context.getProperty(MAX_HISTORY).getValue());
-
-        try {
-            long lastEventId = getLastEventId(stateManager);
-
-            getLogger().info("starting event id: " + lastEventId);
-
-            while (maxEventId != null && lastEventId < maxEventId) {
-                if (maxHistory > 0 && (maxEventId - lastEventId) > maxHistory) {
-                    lastEventId = maxEventId - maxHistory + 1;
-                }
-
-                final List<ProvenanceEventRecord> events = provenance.getEvents(lastEventId, pageSize);
-
-                for (ProvenanceEventRecord e : events) {
-                    final Map<String, Object> event = createEventMap(e);
-                    indexEvent(event, context);
-                }
-
-                lastEventId = Math.min(lastEventId + pageSize, maxEventId);
+    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value, final boolean overwrite) {
+        // Match patterns of form "head.tail" to ensure nested values are properly parsed.
+        final Pattern pattern = Pattern.compile("^(\\w+)\\.(.*)$");
+        final Matcher matcher = pattern.matcher(key);
+        if (matcher.find()) {
+            // The key points to a nested value, so expand nested values.
+            final String head = matcher.group(1);
+            final String tail = matcher.group(2);
+            Map<String, Object> obj = (Map<String, Object>) map.get(head);
+            if (obj == null) {
+                obj = new HashMap<>();
             }
-
-            getLogger().info("ending event id: " + lastEventId);
-
-            setLastEventId(stateManager, lastEventId);
+            final Object v = setField(obj, tail, value, overwrite);
+            map.put(head, v);
         }
-        catch (IOException e) {
-            getLogger().error(e.getMessage(), e);
+        else {
+            // The key is a single value, so parse normally.
+            final Object obj = map.get(key);
+            // Check whether the key points to a nested map.
+            if (obj instanceof Map) {
+                getLogger().warn("value at " + key + " is a Map");
+                // Overwrite the existing map if allowed.
+                if (overwrite) {
+                    map.put(key, value);
+                }
+            }
+            else {
+                // Default to setting key=value.
+                map.put(key, value);
+            }
         }
+        return map;
+    }
+
+    /**
+     * Set the last event ID for the given state manager.
+     *
+     * @param stateManager The state manager to set the last event ID of.
+     * @param eventId The event ID to set.
+     * @throws IOException If unable to get the state of the state manager.
+     */
+    private void setLastEventId(StateManager stateManager, long eventId) throws IOException {
+        final StateMap stateMap = stateManager.getState(Scope.CLUSTER);
+        final Map<String, String> statePropertyMap = new HashMap<>(stateMap.toMap());
+        statePropertyMap.put("lastEventId", Long.toString(eventId));
+        stateManager.setState(statePropertyMap, Scope.CLUSTER);
     }
 }

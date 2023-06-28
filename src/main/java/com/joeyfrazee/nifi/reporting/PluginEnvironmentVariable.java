@@ -24,6 +24,9 @@ public enum PluginEnvironmentVariable {
     ELASTICSEARCH_PASSWORD("ELASTICSEARCH_PASSWORD"),
     ;
 
+    /** The name of the environment variable within the system. */
+    private final String name;
+
     /** The value associated with the environment variable within the system. */
     private final Optional<String> value;
 
@@ -36,7 +39,8 @@ public enum PluginEnvironmentVariable {
      * @param name The name of the plugin environment variable enum to initialise.
      */
     PluginEnvironmentVariable(final String name) {
-        final String rawValue = System.getenv(ENV_VAR_PREFIX + name);
+        this.name = ENV_VAR_PREFIX + name;
+        final String rawValue = System.getenv(this.name);
         this.value = Optional.ofNullable(rawValue);
     }
 
@@ -47,5 +51,14 @@ public enum PluginEnvironmentVariable {
      */
     public Optional<String> getValue() {
         return this.value;
+    }
+
+    /**
+     * Get the name of the environment variable in the system.
+     *
+     * @return The name of the environment variable.
+     */
+    public String getName() {
+        return this.name;
     }
 }
