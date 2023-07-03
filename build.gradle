@@ -132,7 +132,10 @@ signing {
 
 // Ensure the .nar file is built before publishing.
 tasks.withType(AbstractPublishToMaven).configureEach {task ->
-    task.dependsOn build
+    task.dependsOn nar
+}
+tasks.withType(Sign).configureEach {task ->
+    task.dependsOn nar
 }
 
 nexusPublishing {
