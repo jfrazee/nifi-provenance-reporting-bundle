@@ -16,8 +16,8 @@ NiFi provenance reporting tasks.
 
 ## Prerequisites
 
-* Java 8
-* NiFi 1.9.2
+* Java 17
+* NiFi 1.22.0
 
 ## Installation
 
