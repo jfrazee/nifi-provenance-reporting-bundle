@@ -7,11 +7,17 @@ NiFi provenance reporting tasks.
 
 ## Table of Contents
 
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Tasks](#tasks)
     - [ElasticsearchProvenanceReporter](#elasticsearchprovenancereporter)
     - [HttpProvenanceReporter](#httpprovenancereporter)
 - [Todo](#todo)
+
+## Prerequisites
+
+* Java 8
+* NiFi 1.9.2
 
 ## Installation
 
