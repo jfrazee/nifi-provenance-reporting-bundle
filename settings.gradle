@@ -1,0 +1,6 @@
+/*
+ * Created brightSPARK Labs
+ * www.brightsparklabs.com
+ */
+
+rootProject.name = 'nifi-provenance-reporting-nar'

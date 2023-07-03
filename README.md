@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/jfrazee/nifi-provenance-reporting-bundle.svg?branch=master)](https://travis-ci.org/jfrazee/nifi-provenance-reporting-bundle)
+[![Build Status](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml/badge.svg)](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml)
 
 # nifi-provenance-reporting-bundle
 
@@ -15,8 +15,8 @@ NiFi provenance reporting tasks.
 ## Installation
 
 ```sh
-$ mvn clean package
-$ cp nifi-provenance-reporting-nar/target/nifi-provenance-reporting-nar-0.0.2-SNAPSHOT.nar $NIFI_HOME/lib
+$ gradle nar
+$ cp build/libs/nifi-provenance-reporting-nar-<version>.nar $NIFI_HOME/lib
 $ nifi restart
 ```
 
@@ -58,4 +58,9 @@ This reporting task can be configured to POST provenance events to an arbitrary 
 
 ## License
 
-Copyright (c) 2016 Joey Frazee. nifi-provenance-reporting-bundle is released under the Apache License Version 2.0.
+Copyright (c) 2023 brightSPARK Labs (from commit `477827d4818d475e23801006dc0e9273b70fd159`
+onwards).
+
+Copyright (c) 2016 Joey Frazee (to and including commit `477827d4818d475e23801006dc0e9273b70fd159`).
+
+nifi-provenance-reporting-bundle is released under the Apache License Version 2.0.
