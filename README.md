@@ -58,4 +58,9 @@ This reporting task can be configured to POST provenance events to an arbitrary 
 
 ## License
 
-Copyright (c) 2016 Joey Frazee. nifi-provenance-reporting-bundle is released under the Apache License Version 2.0.
+Copyright (c) 2023 brightSPARK Labs (from commit `477827d4818d475e23801006dc0e9273b70fd159`
+onwards).
+
+Copyright (c) 2016 Joey Frazee (to and including commit `477827d4818d475e23801006dc0e9273b70fd159`).
+
+nifi-provenance-reporting-bundle is released under the Apache License Version 2.0.
