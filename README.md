@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/jfrazee/nifi-provenance-reporting-bundle.svg?branch=master)](https://travis-ci.org/jfrazee/nifi-provenance-reporting-bundle)
+[![Build Status](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml/badge.svg)](https://github.com/brightsparklabs/nifi-provenance-reporting-bundle/actions/workflows/test.yml)
 
 # nifi-provenance-reporting-bundle
 
