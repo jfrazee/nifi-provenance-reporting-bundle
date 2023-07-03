@@ -3,13 +3,10 @@
 # www.brightsparklabs.com
 ##
 
-name: Publish to Maven Central
+name: Test
 
 # Controls when the workflow will run
-on:
-  push:
-    branches:
-      - master
+on: [push]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
@@ -19,7 +16,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-    # The type of runner that the job will run on.
+    # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
 
     # Steps represent a sequence of tasks that will be executed as part of the job.
@@ -40,12 +37,7 @@ jobs:
           java-version: "8"
           distribution: "temurin"
           cache: "gradle"
-      - name: Publish package
-        run: |
-          mkdir -p ~/.gradle
-          ./gradlew -i publishToMavenCentral
-        env:
-          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.PGP_SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.PGP_SIGNING_PASSWORD }}
-          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2.4.2
+      - name: Execute Gradle build
+        run: ./gradlew build
