@@ -40,7 +40,7 @@ import java.util.Map;
 
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
-public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {
+public abstract class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {
     public static final PropertyDescriptor ELASTICSEARCH_URL = new PropertyDescriptor
             .Builder().name("Elasticsearch URL")
             .displayName("Elasticsearch URL")
