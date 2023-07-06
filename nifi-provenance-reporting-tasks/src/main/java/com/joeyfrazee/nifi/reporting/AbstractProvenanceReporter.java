@@ -21,6 +21,7 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.components.state.StateManager;
 import org.apache.nifi.components.state.StateMap;
+import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.provenance.ProvenanceEventRecord;
 import org.apache.nifi.provenance.ProvenanceEventRepository;
@@ -257,4 +258,8 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             return;
         }
     }
+
+    public abstract void reportProvenance(String data);
+
+    protected abstract void init(ProcessorInitializationContext context);
 }
