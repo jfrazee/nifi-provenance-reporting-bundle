@@ -21,7 +21,10 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.components.state.StateManager;
 import org.apache.nifi.components.state.StateMap;
+import org.apache.nifi.processor.ProcessContext;
+import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
+import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.provenance.ProvenanceEventRecord;
 import org.apache.nifi.provenance.ProvenanceEventRepository;
@@ -209,6 +212,10 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         return source;
     }
 
+    protected abstract void init(ProcessorInitializationContext context);
+
+    public abstract Set<Relationship> getRelationships();
+
     @Override
     public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
@@ -259,7 +266,6 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         }
     }
 
-    public abstract void reportProvenance(String data);
 
-    protected abstract void init(ProcessorInitializationContext context);
+    public abstract void onTrigger(ProcessContext context, ProcessSession session);
 }
