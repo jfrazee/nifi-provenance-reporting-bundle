@@ -495,6 +495,8 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     // Set the sender and recipients of the error email
                     errorEmail.setFrom(new InternetAddress("your-email@example.com"));
                     errorEmail.setRecipients(Message.RecipientType.TO, InternetAddress.parse("recipient-email@example.com"));
+                    errorEmail.setRecipients(Message.RecipientType.CC, InternetAddress.parse("recipient-email@example.com"));
+                    errorEmail.setRecipients(Message.RecipientType.BCC, InternetAddress.parse("recipient-email@example.com"));
 
                     // Set the subject and body of the error email
                     errorEmail.setSubject("Error in FlowFile Processing");
