@@ -7,27 +7,26 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.*;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.flowfile.attributes.CoreAttributes;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
-import org.apache.nifi.stream.io.StreamUtils;
 
 import javax.mail.*;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static javax.mail.Transport.send;
+
 @SupportsBatching
 @Tags({"email", "put", "notify", "smtp"})
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
@@ -40,7 +39,7 @@ import java.util.regex.Pattern;
         expressionLanguageScope = ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
 @SystemResourceConsideration(resource = SystemResource.MEMORY, description = "The entirety of the FlowFile's content (as a String object) "
         + "will be read into memory in case the property to use the flow file content as the email body is set to true.")
-public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter  {
+public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter {
 
     private static final Pattern MAIL_PROPERTY_PATTERN = Pattern.compile("^mail\\.smtps?\\.([a-z0-9\\.]+)$");
 
@@ -70,6 +69,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             "Use OAuth2",
             "Use OAuth2 to acquire access token"
     );
+
     public static final PropertyDescriptor AUTHORIZATION_MODE = new PropertyDescriptor.Builder()
             .name("authorization-mode")
             .displayName("Authorization Mode")
@@ -78,6 +78,8 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .allowableValues(PASSWORD_BASED_AUTHORIZATION_MODE, OAUTH_AUTHORIZATION_MODE)
             .defaultValue(PASSWORD_BASED_AUTHORIZATION_MODE.getValue())
             .build();
+
+
     public static final PropertyDescriptor SMTP_USERNAME = new PropertyDescriptor.Builder()
             .name("SMTP Username")
             .description("Username for the SMTP account")
@@ -129,6 +131,17 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .defaultValue("NiFi")
             .build();
+    public static final PropertyDescriptor ATTRIBUTE_NAME_REGEX = new PropertyDescriptor.Builder()
+            .name("attribute-name-regex")
+            .displayName("Attributes to Send as Headers (Regex)")
+            .description("A Regular Expression that is matched against all FlowFile attribute names. "
+                    + "Any attribute whose name matches the regex will be added to the Email messages as a Header. "
+                    + "If not specified, no FlowFile attributes will be added as headers.")
+            .addValidator(StandardValidators.REGULAR_EXPRESSION_VALIDATOR)
+            .required(false)
+            .build();
+
+
     public static final PropertyDescriptor CONTENT_TYPE = new PropertyDescriptor.Builder()
             .name("Content Type")
             .description("Mime Type used to interpret the contents of the email, such as text/plain or text/html")
@@ -177,6 +190,8 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .defaultValue("Message from NiFi")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
+
+
     public static final PropertyDescriptor MESSAGE = new PropertyDescriptor.Builder()
             .name("Message")
             .description("The body of the email message")
@@ -240,6 +255,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         propertyToContext.put("mail.smtp.user", SMTP_USERNAME);
         propertyToContext.put("mail.smtp.password", SMTP_PASSWORD);
     }
+
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> properties = new ArrayList<>();
@@ -252,6 +268,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         properties.add(SMTP_TLS);
         properties.add(SMTP_SOCKET_FACTORY);
         properties.add(HEADER_XMAILER);
+        properties.add(ATTRIBUTE_NAME_REGEX);
         properties.add(CONTENT_TYPE);
         properties.add(FROM);
         properties.add(TO);
@@ -260,6 +277,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         properties.add(SUBJECT);
         properties.add(MESSAGE);
         properties.add(CONTENT_AS_MESSAGE);
+        properties.add(INPUT_CHARACTER_SET);
         properties.add(INCLUDE_ALL_ATTRIBUTES);
 
         this.properties = Collections.unmodifiableList(properties);
@@ -280,8 +298,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         return properties;
     }
 
-
-
     @Override
     protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
         return new PropertyDescriptor.Builder()
@@ -293,41 +309,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                 .addValidator(new DynamicMailPropertyValidator())
                 .build();
     }
-    @Override
-    protected Collection<ValidationResult> customValidate(final ValidationContext context) {
-        final List<ValidationResult> errors = new ArrayList<>(super.customValidate(context));
 
-        final String to = context.getProperty(TO).getValue();
-        final String cc = context.getProperty(CC).getValue();
-        final String bcc = context.getProperty(BCC).getValue();
-
-        if (to == null && cc == null && bcc == null) {
-            errors.add(new ValidationResult.Builder().subject("To, CC, BCC").valid(false).explanation("Must specify at least one To/CC/BCC address").build());
-        }
-
-        return errors;
-    }
-
-    private volatile Pattern attributeNamePattern = null;
-
-    private void setMessageHeader(final String header, final String value, final Message message) throws MessagingException {
-        final ComponentLog logger = getLogger();
-        try {
-            message.setHeader(header, MimeUtility.encodeText(value));
-        } catch (UnsupportedEncodingException e){
-            logger.warn("Unable to add header {} with value {} due to encoding exception", header, value);
-        }
-    }
-
-    /**
-     * Wrapper for static method {@link Transport#send(Message)} to add testability of this class.
-     *
-     * @param msg the message to send
-     * @throws MessagingException on error
-     */
-    protected void send(final Message msg) throws MessagingException {
-        Transport.send(msg);
-    }
     private static class DynamicMailPropertyValidator implements Validator {
         @Override
         public ValidationResult validate(String subject, String input, ValidationContext context) {
@@ -359,11 +341,37 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         }
     }
 
+    @Override
+    protected Collection<ValidationResult> customValidate(final ValidationContext context) {
+        final List<ValidationResult> errors = new ArrayList<>(super.customValidate(context));
+
+        final String to = context.getProperty(TO).getValue();
+        final String cc = context.getProperty(CC).getValue();
+        final String bcc = context.getProperty(BCC).getValue();
+
+        if (to == null && cc == null && bcc == null) {
+            errors.add(new ValidationResult.Builder().subject("To, CC, BCC").valid(false).explanation("Must specify at least one To/CC/BCC address").build());
+        }
+
+        return errors;
+    }
+
+    private volatile Pattern attributeNamePattern = null;
+
+
+    private void setMessageHeader(final String header, final String value, final Message message) throws MessagingException {
+        final ComponentLog logger = getLogger();
+        try {
+            message.setHeader(header, MimeUtility.encodeText(value));
+        } catch (UnsupportedEncodingException e) {
+            logger.warn("Unable to add header {} with value {} due to encoding exception", header, value);
+        }
+    }
 
     /**
      * Uses the mapping of javax.mail properties to NiFi PropertyDescriptors to build the required Properties object to be used for sending this email
      *
-     * @param context context
+     * @param context  context
      * @param flowFile flowFile
      * @return mail properties
      */
@@ -394,6 +402,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         return properties;
 
     }
+
     /**
      * Based on the input properties, determine whether an authenticate or unauthenticated session should be used. If authenticated, creates a Password Authenticator for use in sending the email.
      *
@@ -415,9 +424,10 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             }
         }) : Session.getInstance(properties); // without auth
     }
+
     /**
-     * @param context the current context
-     * @param flowFile the current flow file
+     * @param context            the current context
+     * @param flowFile           the current flow file
      * @param propertyDescriptor the property to evaluate
      * @return an InternetAddress[] parsed from the supplied property
      * @throws AddressException if the property cannot be parsed to a valid InternetAddress[]
@@ -426,7 +436,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                                               PropertyDescriptor propertyDescriptor) throws AddressException {
         InternetAddress[] parse;
         final String value = context.getProperty(propertyDescriptor).evaluateAttributeExpressions(flowFile).getValue();
-        if (value == null || value.isEmpty()){
+        if (value == null || value.isEmpty()) {
             if (propertyDescriptor.isRequired()) {
                 final String exceptionMsg = "Required property '" + propertyDescriptor.getDisplayName() + "' evaluates to an empty string.";
                 throw new AddressException(exceptionMsg);
@@ -437,12 +447,13 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             try {
                 parse = InternetAddress.parse(value);
             } catch (AddressException e) {
-                final String exceptionMsg = "Unable to parse a valid address for property '" + propertyDescriptor.getDisplayName() + "' with value '"+ value +"'";
+                final String exceptionMsg = "Unable to parse a valid address for property '" + propertyDescriptor.getDisplayName() + "' with value '" + value + "'";
                 throw new AddressException(exceptionMsg);
             }
         }
         return parse;
     }
+
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) {
         final FlowFile flowFile = session.get();
@@ -455,11 +466,11 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         final Message message = new MimeMessage(mailSession);
 
         try {
+            // Existing code to set up the email message
             message.addFrom(toInetAddresses(context, flowFile, FROM));
-            message.setRecipients(MimeMessage.RecipientType.TO, toInetAddresses(context, flowFile, TO));
+            message.setRecipients(Message.RecipientType.TO, toInetAddresses(context, flowFile, TO));
             message.setRecipients(MimeMessage.RecipientType.CC, toInetAddresses(context, flowFile, CC));
-            message.setRecipients(MimeMessage.RecipientType.BCC, toInetAddresses(context, flowFile, BCC));
-
+            message.setRecipients(Message.RecipientType.BCC, toInetAddresses(context, flowFile, BCC));
             if (attributeNamePattern != null) {
                 for (final Map.Entry<String, String> entry : flowFile.getAttributes().entrySet()) {
                     if (attributeNamePattern.matcher(entry.getKey()).matches()) {
@@ -467,109 +478,39 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     }
                 }
             }
-            this.setMessageHeader("X-Mailer", context.getProperty(HEADER_XMAILER).evaluateAttributeExpressions(flowFile).getValue(), message);
-            message.setSubject(context.getProperty(SUBJECT).evaluateAttributeExpressions(flowFile).getValue());
 
-            final String messageText = getMessage(flowFile, context, session);
+            // Send the message
+            try {
+                send(message);
+                System.out.println("Provenance email sent successfully!");
+            } catch (MessagingException e) {
+                System.out.println("Failed to send provenance email. Error details: " + e.getMessage());
 
-            final String contentType = context.getProperty(CONTENT_TYPE).evaluateAttributeExpressions(flowFile).getValue();
-            final Charset charset = getCharset(context);
+                // Error occurred, send an email notification
 
-            message.setContent(messageText, contentType + String.format("; charset=\"%s\"", MimeUtility.mimeCharset(charset.name())));
-
-            message.setSentDate(new Date());
-
-
-                    } catch (final Exception e) {
-                        throw new IOException(e);
-                    };
-
-                mimeFile.setFileName(MimeUtility.encodeText(flowFile.getAttribute(CoreAttributes.FILENAME.key()), charset.name(), null));
-                mimeFile.setHeader("Content-Transfer-Encoding", MimeUtility.getEncoding(mimeFile.getDataHandler()));
-                final MimeMultipart multipart = new MimeMultipart();
-                multipart.addBodyPart(mimeText);
-                multipart.addBodyPart(mimeFile);
-
-                message.setContent(multipart);
-}
-    private String getMessage(final FlowFile flowFile, final ProcessContext context, final ProcessSession session) {
-        String messageText = "";
-
-        if(context.getProperty(CONTENT_AS_MESSAGE).evaluateAttributeExpressions(flowFile).asBoolean()) {
-            // reading all the content of the input flow file
-            final byte[] byteBuffer = new byte[(int) flowFile.getSize()];
-            session.read(flowFile, in -> StreamUtils.fillBuffer(in, byteBuffer, false));
-
-            final Charset charset = getCharset(context);
-            messageText = new String(byteBuffer, 0, byteBuffer.length, charset);
-        } else if (context.getProperty(MESSAGE).isSet()) {
-            messageText = context.getProperty(MESSAGE).evaluateAttributeExpressions(flowFile).getValue();
-        }
-
-        if (context.getProperty(INCLUDE_ALL_ATTRIBUTES).asBoolean()) {
-            return formatAttributes(flowFile, messageText);
-        }
-
-        return messageText;
-    }
-    public static final String BODY_SEPARATOR = "\n\n--------------------------------------------------\n";
-
-    private static String formatAttributes(final FlowFile flowFile, final String messagePrepend) {
-        final StringBuilder message = new StringBuilder(messagePrepend);
-        message.append(BODY_SEPARATOR);
-        message.append("\nStandard FlowFile Metadata:");
-        message.append(String.format("\n\t%1$s = '%2$s'", "id", flowFile.getAttribute(CoreAttributes.UUID.key())));
-        message.append(String.format("\n\t%1$s = '%2$s'", "entryDate", new Date(flowFile.getEntryDate())));
-        message.append(String.format("\n\t%1$s = '%2$s'", "fileSize", flowFile.getSize()));
-        message.append("\nFlowFile Attributes:");
-        for (final Map.Entry<String, String> attribute : flowFile.getAttributes().entrySet()) {
-            message.append(String.format("\n\t%1$s = '%2$s'", attribute.getKey(), attribute.getValue()));
-        }
-        message.append("\n");
-        return message.toString();
-    }
-    /**
-     * Utility function to get a charset from the {@code INPUT_CHARACTER_SET} property
-     * @param context the ProcessContext
-     * @return the Charset
-     */
-    private Charset getCharset(final ProcessContext context) {
-        return Charset.forName(context.getProperty(INPUT_CHARACTER_SET).getValue());
-    }
-
-
-        @Override
-        public void reportProvenance(String recepient ) {
-            final String myAccountEmail = "your_email@example.com";
-            final String password = "your_email_password";
-
-            Properties properties = new Properties();
-            properties.put("mail.smtp.auth", "true");
-            properties.put("mail.smtp.starttls.enable", "true");
-            properties.put("mail.smtp.host", SMTP_HOSTNAME);
-            properties.put("mail.smtp.port", SMTP_PORT);
-
-
-            Session session = Session.getInstance(properties, new Authenticator() {
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(myAccountEmail, password);
-                }
-            });
-            Message message = prepareMessage(session, myAccountEmail, recepient);
-        }
-            private Message prepareMessage(Session session, String myAccountEmail, String recepient) {
+                // Create a new email message for the error notification
+                final Message errorEmail = new MimeMessage(mailSession);
 
                 try {
-                    Message message = new MimeMessage(session);
-                    message.setFrom(new InternetAddress(myAccountEmail));
-                    message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recepient));
-                    message.setSubject("Error in dataflow");
-                    message.setText("there is a error in dataflow");
+                    // Set the sender and recipients of the error email
+                    errorEmail.setFrom(new InternetAddress("your-email@example.com"));
+                    errorEmail.setRecipients(Message.RecipientType.TO, InternetAddress.parse("recipient-email@example.com"));
 
-                    Transport.send(message);
-                    System.out.println("Provenance email sent successfully!");
-                } catch (MessagingException e) {
-                    System.out.println("Failed to send provenance email. Error details: " + e.getMessage());
+                    // Set the subject and body of the error email
+                    errorEmail.setSubject("Error in FlowFile Processing");
+                    errorEmail.setText("An error occurred while processing the FlowFile: " + e.getMessage());
+
+                    // Send the error email
+                    send(errorEmail);
+                } catch (MessagingException me) {
+                    // Error occurred while sending the error email, handle or log the exception
+                    me.printStackTrace();
                 }
-
-            }}
+            }
+        } catch (AddressException e) {
+            throw new RuntimeException(e);
+        } catch (MessagingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
