@@ -486,8 +486,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             } catch (MessagingException e) {
                 System.out.println("Failed to send provenance email. Error details: " + e.getMessage());
 
-                // Error occurred, send an email notification
-
                 // Create a new email message for the error notification
                 final Message errorEmail = new MimeMessage(mailSession);
 
