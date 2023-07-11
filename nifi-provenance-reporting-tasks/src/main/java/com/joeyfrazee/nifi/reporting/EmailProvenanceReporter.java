@@ -25,8 +25,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static javax.mail.Transport.send;
-
 @SupportsBatching
 @Tags({"email", "put", "notify", "smtp"})
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
@@ -59,6 +57,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.PORT_VALIDATOR)
             .build();
+
     public static final AllowableValue PASSWORD_BASED_AUTHORIZATION_MODE = new AllowableValue(
             "password-based-authorization-mode",
             "Use Password",
@@ -190,7 +189,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .defaultValue("Message from NiFi")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
-
 
     public static final PropertyDescriptor MESSAGE = new PropertyDescriptor.Builder()
             .name("Message")
@@ -340,7 +338,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     .build();
         }
     }
-
     @Override
     protected Collection<ValidationResult> customValidate(final ValidationContext context) {
         final List<ValidationResult> errors = new ArrayList<>(super.customValidate(context));
@@ -423,6 +420,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                 return new PasswordAuthentication(username, password);
             }
         }) : Session.getInstance(properties); // without auth
+
     }
 
     /**
@@ -478,6 +476,8 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     }
                 }
             }
+            this.setMessageHeader("X-Mailer", context.getProperty(HEADER_XMAILER).evaluateAttributeExpressions(flowFile).getValue(), message);
+            message.setSubject(context.getProperty(SUBJECT).evaluateAttributeExpressions(flowFile).getValue());
 
             // Send the message
             try {
@@ -498,6 +498,14 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     errorEmail.setRecipients(Message.RecipientType.CC, InternetAddress.parse("recipient-email@example.com"));
                     errorEmail.setRecipients(Message.RecipientType.BCC, InternetAddress.parse("recipient-email@example.com"));
 
+                    if (attributeNamePattern != null) {
+                        for (final Map.Entry<String, String> entry : flowFile.getAttributes().entrySet()) {
+                            if (attributeNamePattern.matcher(entry.getKey()).matches()) {
+                                this.setMessageHeader(entry.getKey(), entry.getValue(), message);
+                            }
+                        }
+                    }
+
                     // Set the subject and body of the error email
                     errorEmail.setSubject("Error in FlowFile Processing");
                     errorEmail.setText("An error occurred while processing the FlowFile: " + e.getMessage());
@@ -514,5 +522,14 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         } catch (MessagingException e) {
             throw new RuntimeException(e);
         }
+    }
+    /**
+     * Wrapper for static method {@link Transport#send(Message)} to add testability of this class.
+     *
+     * @param msg the message to send
+     * @throws MessagingException on error
+     */
+    protected void send(final Message msg) throws MessagingException {
+        Transport.send(msg);
     }
 }
