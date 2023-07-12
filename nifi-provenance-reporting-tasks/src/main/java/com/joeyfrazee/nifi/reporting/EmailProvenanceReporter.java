@@ -20,6 +20,7 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -451,6 +452,14 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         }
         return parse;
     }
+    /**
+     * Utility function to get a charset from the {@code INPUT_CHARACTER_SET} property
+     * @param context the ProcessContext
+     * @return the Charset
+     */
+    private Charset getCharset(final ProcessContext context) {
+        return Charset.forName(context.getProperty(INPUT_CHARACTER_SET).getValue());
+    }
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) {
@@ -478,6 +487,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             }
             this.setMessageHeader("X-Mailer", context.getProperty(HEADER_XMAILER).evaluateAttributeExpressions(flowFile).getValue(), message);
             message.setSubject(context.getProperty(SUBJECT).evaluateAttributeExpressions(flowFile).getValue());
+
 
             // Send the message
             try {
