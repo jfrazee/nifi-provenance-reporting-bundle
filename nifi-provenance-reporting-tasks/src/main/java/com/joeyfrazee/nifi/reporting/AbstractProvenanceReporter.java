@@ -32,8 +32,6 @@ import org.apache.nifi.reporting.ReportingContext;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Stateful(scopes = Scope.CLUSTER, description = "After querying the "
         + "provenance repository, the last seen event id is stored so "
@@ -83,40 +81,9 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         stateManager.setState(statePropertyMap, Scope.CLUSTER);
     }
 
-    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value, final boolean overwrite) {
-        Pattern p = Pattern.compile("^(\\w+)\\.(.*)$");
-        Matcher m = p.matcher(key);
-        if (m.find()) {
-            String head = m.group(1);
-            String tail = m.group(2);
-            Map<String, Object> obj = (Map<String, Object>) map.get(head);
-            if (obj == null) {
-                obj = new HashMap<>();
-            }
-            Object v = setField(obj, tail, value, overwrite);
-            map.put(head, v);
-        }
-        else {
-            Object obj = map.get(key);
-            if (obj instanceof Map) {
-                getLogger().warn("value at " + key + " is a Map");
-                if (overwrite) {
-                    map.put(key, value);
-                }
-            }
-            else {
-                map.put(key, value);
-            }
-        }
-        return map;
-    }
+    private Map<String, Object> createEventMap(ProvenanceEventRecord e, ReportingContext context) {
 
-    private Map<String, Object> setField(Map<String, Object> map, final String key, final Object value) {
-        return setField(map, key, value, false);
-    }
-
-    private Map<String, Object> createEventMap(ProvenanceEventRecord e) {
-        final Map<String, Object> source = new HashMap<String, Object>();
+        final Map<String, Object> source = new HashMap<>();
         final SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
         source.put("@timestamp", ft.format(new Date()));
@@ -187,20 +154,12 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             source.put("source_queue_id", sourceQueueId);
         }
 
-        final Map<String, Object> attributes = new HashMap<String, Object>();
-
-        final Map<String, String> receivedAttributes = e.getAttributes();
-        if (receivedAttributes != null && !receivedAttributes.isEmpty()) {
-            for (Map.Entry<String, String> a : receivedAttributes.entrySet()) {
-                setField(attributes, a.getKey(), a.getValue());
-            }
-        }
+        final Map<String, String> attributes = new HashMap<>();
 
         final Map<String, String> updatedAttributes = e.getUpdatedAttributes();
         if (updatedAttributes != null && !updatedAttributes.isEmpty()) {
-            for (Map.Entry<String, String> a : updatedAttributes.entrySet()) {
-                setField(attributes, a.getKey(), a.getValue());
-            }
+            getLogger().debug("Adding updated attributes: {}", updatedAttributes);
+            attributes.putAll(updatedAttributes);
         }
 
         source.put("attributes", attributes);
@@ -210,7 +169,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
 
     @Override
     public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(PAGE_SIZE);
         descriptors.add(MAX_HISTORY);
         return descriptors;
@@ -254,7 +213,6 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         }
         catch (IOException e) {
             getLogger().error(e.getMessage(), e);
-            return;
         }
     }
 }
