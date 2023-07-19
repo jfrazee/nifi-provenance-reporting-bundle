@@ -16,6 +16,11 @@
  */
 package com.joeyfrazee.nifi.reporting;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 import org.apache.http.HttpHost;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -23,17 +28,12 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
+import org.elasticsearch.client.RestClient;
 
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
-import org.elasticsearch.client.RestClient;
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.IndexRequest;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
 public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {
@@ -43,7 +43,6 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .description("The address for Elasticsearch")
             .required(true)
             .defaultValue("nifi")
-            .defaultValue("http://localhost:9200")
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
@@ -72,7 +71,6 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         return client;
     }
 
-
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         descriptors = super.getSupportedPropertyDescriptors();
@@ -82,12 +80,15 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
-        final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
-        final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions()
+        final String elasticsearchUrl =
+                context.getProperty(ELASTICSEARCH_URL).getValue();
+        final String elasticsearchIndex =
+                context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions()
                 .getValue();
         final ElasticsearchClient client = getElasticsearchClient(new URL(elasticsearchUrl));
         final String id = Long.toString((Long) event.get("event_id"));
-        final IndexRequest<Map<String, Object>> indexRequest = new IndexRequest.Builder<Map<String, Object>>()
+        final IndexRequest<Map<String, Object>> indexRequest = new
+                IndexRequest.Builder<Map<String, Object>>()
                 .index(elasticsearchIndex)
                 .id(id)
                 .document(event)
