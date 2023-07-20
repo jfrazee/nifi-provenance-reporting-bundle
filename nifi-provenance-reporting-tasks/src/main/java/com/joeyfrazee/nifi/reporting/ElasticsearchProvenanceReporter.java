@@ -42,7 +42,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Elasticsearch URL")
             .description("The address for Elasticsearch")
             .required(true)
-            .defaultValue("nifi")
+            .defaultValue("http://localhost:9200")
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 

@@ -33,8 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"http", "provenance"})
 @CapabilityDescription("A provenance reporting task that posts to an HTTP server")
-public class
-HttpProvenanceReporter extends AbstractProvenanceReporter {
+public class HttpProvenanceReporter extends AbstractProvenanceReporter {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     public static final PropertyDescriptor URL = new PropertyDescriptor
