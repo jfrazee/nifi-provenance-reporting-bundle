@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
 public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter {

@@ -25,7 +25,6 @@
     <artifactId>nifi-provenance-reporting-tasks</artifactId>
     <packaging>jar</packaging>
 
-
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>
