@@ -19,7 +19,7 @@
     <parent>
         <groupId>com.joeyfrazee.nifi</groupId>
         <artifactId>nifi-provenance-reporting-bundle</artifactId>
-        <version>1.21.0</version>
+        <version>1.22.0</version>
     </parent>
 
     <artifactId>nifi-provenance-reporting-tasks</artifactId>
@@ -29,17 +29,17 @@
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-api</artifactId>
-            <version>1.21.0</version>
+            <version>1.22.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-utils</artifactId>
-            <version>1.21.0</version>
+            <version>1.22.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-reporting-utils</artifactId>
-            <version>1.21.0</version>
+            <version>1.22.0</version>
         </dependency>
         <dependency>
             <groupId>co.elastic.clients</groupId>
@@ -59,7 +59,7 @@
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-mock</artifactId>
-            <version>1.21.0</version>
+            <version>1.22.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
