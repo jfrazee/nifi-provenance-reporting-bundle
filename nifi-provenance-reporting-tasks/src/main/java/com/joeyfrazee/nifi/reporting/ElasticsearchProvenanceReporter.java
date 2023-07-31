@@ -17,6 +17,7 @@
 package com.joeyfrazee.nifi.reporting;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
@@ -31,7 +32,9 @@ import org.apache.nifi.reporting.ReportingContext;
 import org.elasticsearch.client.RestClient;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,18 +60,20 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-    private ElasticsearchClient getElasticsearchClient(URL elasticsearchUrl) {
-        // Create the low-level client
-        RestClient restClient = RestClient.builder(
-                new HttpHost(elasticsearchUrl.getHost(), elasticsearchUrl.getPort())).build();
+    private final Map<String, ElasticsearchClient> esClients = new HashMap<>();
+
+    private ElasticsearchClient getElasticsearchClient(String elasticsearchUrl) throws MalformedURLException {
+        if (esClients.containsKey(elasticsearchUrl))
+            return esClients.get(elasticsearchUrl);
+
+        URL url = new URL(elasticsearchUrl);
+        RestClient restClient = RestClient.builder(new HttpHost(url.getHost(), url.getPort())).build();
 
         // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(
-                restClient, new JacksonJsonpMapper());
+        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
 
-        // And create the API client
         ElasticsearchClient client = new ElasticsearchClient(transport);
-
+        esClients.put(elasticsearchUrl, client);
         return client;
     }
 
@@ -81,12 +86,9 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
-        final String elasticsearchUrl =
-                context.getProperty(ELASTICSEARCH_URL).getValue();
-        final String elasticsearchIndex =
-                context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions()
-                .getValue();
-        final ElasticsearchClient client = getElasticsearchClient(new URL(elasticsearchUrl));
+        final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
+        final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions().getValue();
+        final ElasticsearchClient client = getElasticsearchClient(elasticsearchUrl);
         final String id = Long.toString((Long) event.get("event_id"));
         final IndexRequest<Map<String, Object>> indexRequest = new
                 IndexRequest.Builder<Map<String, Object>>()
@@ -94,6 +96,10 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
                 .id(id)
                 .document(event)
                 .build();
-        client.index(indexRequest);
+        try {
+            client.index(indexRequest);
+        } catch (ElasticsearchException ex) {
+            getLogger().error("Error while indexing event {}", id, ex);
+        }
     }
 }
