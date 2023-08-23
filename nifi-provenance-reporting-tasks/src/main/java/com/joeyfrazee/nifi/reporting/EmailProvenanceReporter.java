@@ -1,6 +1,5 @@
 package com.joeyfrazee.nifi.reporting;
 
-
 import org.apache.nifi.annotation.behavior.*;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -10,15 +9,15 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.reporting.ReportingContext;
 
 import javax.mail.*;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -27,9 +26,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @SupportsBatching
-@Tags({"email", "put", "notify", "smtp"})
-@InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
-@CapabilityDescription("Sends an e-mail to configured recipients for each incoming FlowFile")
+@Tags({"email", "provenance"})
+@CapabilityDescription("Sends an e-mail when a provenance event is considered as an error")
 @SupportsSensitiveDynamicProperties
 @DynamicProperty(name = "mail.propertyName",
         value = "Value for a specific property to be set in the JavaMail Session object",
@@ -38,7 +36,7 @@ import java.util.regex.Pattern;
         expressionLanguageScope = ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
 @SystemResourceConsideration(resource = SystemResource.MEMORY, description = "The entirety of the FlowFile's content (as a String object) "
         + "will be read into memory in case the property to use the flow file content as the email body is set to true.")
-public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter {
+public class EmailProvenanceReporter extends AbstractProvenanceReporter {
 
     private static final Pattern MAIL_PROPERTY_PATTERN = Pattern.compile("^mail\\.smtps?\\.([a-z0-9\\.]+)$");
 
@@ -59,27 +57,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .addValidator(StandardValidators.PORT_VALIDATOR)
             .build();
 
-    public static final AllowableValue PASSWORD_BASED_AUTHORIZATION_MODE = new AllowableValue(
-            "password-based-authorization-mode",
-            "Use Password",
-            "Use password"
-    );
-    public static final AllowableValue OAUTH_AUTHORIZATION_MODE = new AllowableValue(
-            "oauth-based-authorization-mode",
-            "Use OAuth2",
-            "Use OAuth2 to acquire access token"
-    );
-
-    public static final PropertyDescriptor AUTHORIZATION_MODE = new PropertyDescriptor.Builder()
-            .name("authorization-mode")
-            .displayName("Authorization Mode")
-            .description("How to authorize sending email on the user's behalf.")
-            .required(true)
-            .allowableValues(PASSWORD_BASED_AUTHORIZATION_MODE, OAUTH_AUTHORIZATION_MODE)
-            .defaultValue(PASSWORD_BASED_AUTHORIZATION_MODE.getValue())
-            .build();
-
-
     public static final PropertyDescriptor SMTP_USERNAME = new PropertyDescriptor.Builder()
             .name("SMTP Username")
             .description("Username for the SMTP account")
@@ -92,7 +69,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
     public static final PropertyDescriptor SMTP_PASSWORD = new PropertyDescriptor.Builder()
             .name("SMTP Password")
             .description("Password for the SMTP account")
-            .dependsOn(AUTHORIZATION_MODE, PASSWORD_BASED_AUTHORIZATION_MODE)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .required(false)
@@ -226,19 +202,6 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             .defaultValue("false")
             .build();
 
-    public static final Relationship REL_SUCCESS = new Relationship.Builder()
-            .name("success")
-            .description("FlowFiles that are successfully sent will be routed to this relationship")
-            .build();
-    public static final Relationship REL_FAILURE = new Relationship.Builder()
-            .name("failure")
-            .description("FlowFiles that fail to send will be routed to this relationship")
-            .build();
-
-    private List<PropertyDescriptor> properties;
-
-    private Set<Relationship> relationships;
-
     /**
      * Mapping of the mail properties to the NiFi PropertyDescriptors that will be evaluated at runtime
      */
@@ -256,45 +219,28 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
     }
 
     @Override
-    protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> properties = new ArrayList<>();
-        properties.add(SMTP_HOSTNAME);
-        properties.add(SMTP_PORT);
-        properties.add(AUTHORIZATION_MODE);
-        properties.add(SMTP_USERNAME);
-        properties.add(SMTP_PASSWORD);
-        properties.add(SMTP_AUTH);
-        properties.add(SMTP_TLS);
-        properties.add(SMTP_SOCKET_FACTORY);
-        properties.add(HEADER_XMAILER);
-        properties.add(ATTRIBUTE_NAME_REGEX);
-        properties.add(CONTENT_TYPE);
-        properties.add(FROM);
-        properties.add(TO);
-        properties.add(CC);
-        properties.add(BCC);
-        properties.add(SUBJECT);
-        properties.add(MESSAGE);
-        properties.add(CONTENT_AS_MESSAGE);
-        properties.add(INPUT_CHARACTER_SET);
-        properties.add(INCLUDE_ALL_ATTRIBUTES);
-
-        this.properties = Collections.unmodifiableList(properties);
-
-        final Set<Relationship> relationships = new HashSet<>();
-        relationships.add(REL_SUCCESS);
-        relationships.add(REL_FAILURE);
-        this.relationships = Collections.unmodifiableSet(relationships);
-    }
-
-    @Override
-    public Set<Relationship> getRelationships() {
-        return relationships;
-    }
-
-    @Override
     public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-        return properties;
+        descriptors = super.getSupportedPropertyDescriptors();
+        descriptors.add(SMTP_HOSTNAME);
+        descriptors.add(SMTP_PORT);
+        descriptors.add(SMTP_USERNAME);
+        descriptors.add(SMTP_PASSWORD);
+        descriptors.add(SMTP_TLS);
+        descriptors.add(SMTP_SOCKET_FACTORY);
+        descriptors.add(HEADER_XMAILER);
+        descriptors.add(ATTRIBUTE_NAME_REGEX);
+        descriptors.add(CONTENT_TYPE);
+        descriptors.add(FROM);
+        descriptors.add(TO);
+        descriptors.add(CC);
+        descriptors.add(BCC);
+        descriptors.add(SUBJECT);
+        descriptors.add(MESSAGE);
+        descriptors.add(INCLUDE_ALL_ATTRIBUTES);
+        descriptors.add(INPUT_CHARACTER_SET);
+        descriptors.add(CONTENT_AS_MESSAGE);
+
+        return descriptors;
     }
 
     @Override
@@ -354,7 +300,7 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
         return errors;
     }
 
-    private volatile Pattern attributeNamePattern = null;
+    private final Pattern attributeNamePattern = null;
 
 
     private void setMessageHeader(final String header, final String value, final Message message) throws MessagingException {
@@ -462,6 +408,11 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
     }
 
     @Override
+    public void indexEvent(Map<String, Object> event, ReportingContext context) throws IOException {
+        // TODO
+    }
+
+    // TODO this does not apply to a reporting task, to be ported
     public void onTrigger(final ProcessContext context, final ProcessSession session) {
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
@@ -492,9 +443,9 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
             // Send the message
             try {
                 send(message);
-                System.out.println("Provenance email sent successfully!");
+                getLogger().debug("Provenance email sent successfully!");
             } catch (MessagingException e) {
-                System.out.println("Failed to send provenance email. Error details: " + e.getMessage());
+                getLogger().error("Failed to send provenance email. Error details: " + e.getMessage());
 
                 // Create a new email message for the error notification
                 final Message errorEmail = new MimeMessage(mailSession);
@@ -522,12 +473,11 @@ public abstract class EmailProvenanceReporter extends AbstractProvenanceReporter
                     send(errorEmail);
                 } catch (MessagingException me) {
                     // Error occurred while sending the error email, handle or log the exception
-                    me.printStackTrace();
+                    getLogger().error("Error while sending email", me);
                 }
             }
-        } catch (AddressException e) {
-            throw new RuntimeException(e);
         } catch (MessagingException e) {
+            getLogger().error("Error while sending email", e);
             throw new RuntimeException(e);
         }
     }

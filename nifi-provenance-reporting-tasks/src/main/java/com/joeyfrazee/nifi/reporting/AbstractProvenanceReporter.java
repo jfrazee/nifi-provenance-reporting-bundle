@@ -20,10 +20,6 @@ import org.apache.nifi.annotation.behavior.Stateful;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.state.Scope;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.provenance.ProvenanceEventRecord;
 import org.apache.nifi.provenance.ProvenanceEventType;
@@ -75,10 +71,6 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
     protected List<PropertyDescriptor> descriptors;
 
     private volatile ProvenanceEventConsumer consumer;
-
-    protected abstract void init(ProcessorInitializationContext context);
-
-    public abstract Set<Relationship> getRelationships();
 
     @Override
     public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -232,7 +224,4 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             getLogger().error("Failed to process provenance events", e);
         }
     }
-
-
-    public abstract void onTrigger(ProcessContext context, ProcessSession session);
 }
