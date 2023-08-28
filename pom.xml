@@ -19,7 +19,7 @@
 
     <groupId>com.joeyfrazee.nifi</groupId>
     <artifactId>nifi-provenance-reporting-bundle</artifactId>
-    <version>1.23.1</version>
+    <version>1.23.2</version>
     <packaging>pom</packaging>
 
     <modules>

@@ -19,7 +19,7 @@
     <parent>
         <groupId>com.joeyfrazee.nifi</groupId>
         <artifactId>nifi-provenance-reporting-bundle</artifactId>
-        <version>1.23.1</version>
+        <version>1.23.2</version>
     </parent>
 
     <artifactId>nifi-provenance-reporting-nar</artifactId>
@@ -33,7 +33,7 @@
         <dependency>
             <groupId>com.joeyfrazee.nifi</groupId>
             <artifactId>nifi-provenance-reporting-tasks</artifactId>
-            <version>1.23.1</version>
+            <version>1.23.2</version>
         </dependency>
     </dependencies>
 
