@@ -204,7 +204,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         }));
     }
 
-    public abstract void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException;
+    public abstract boolean indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException;
 
     @Override
     public void onTrigger(final ReportingContext context) {

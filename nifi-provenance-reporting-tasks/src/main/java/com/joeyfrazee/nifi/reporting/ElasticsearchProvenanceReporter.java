@@ -85,7 +85,7 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         return descriptors;
     }
 
-    public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
+    public boolean indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
         final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
         final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions().getValue();
         final ElasticsearchClient client = getElasticsearchClient(elasticsearchUrl);
@@ -101,5 +101,6 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         } catch (ElasticsearchException ex) {
             getLogger().error("Error while indexing event {}", id, ex);
         }
+        return false;
     }
 }

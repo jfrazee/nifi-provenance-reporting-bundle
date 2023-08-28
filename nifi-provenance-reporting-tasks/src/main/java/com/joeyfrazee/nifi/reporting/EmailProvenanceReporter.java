@@ -9,6 +9,7 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
+import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
 
@@ -408,16 +409,51 @@ public class EmailProvenanceReporter extends AbstractProvenanceReporter {
     }
 
     @Override
-    public void indexEvent(Map<String, Object> event, ReportingContext context) throws IOException {
+    public boolean indexEvent(Map<String, Object> event, ReportingContext context) throws IOException {
         // TODO
+        //Code to extract information from the provenance event
+        String eventType = (String) event.get("event_type");
+        String details = (String) event.get("details");
+        String relationship = (String) event.get("relationship");
+
+        // Check if the event is an error using the ErrorEvent method
+        boolean Error = ErrorEvent(eventType, details, relationship);
+        // Send the email message when there is an error event
+        try {
+            if (Error) {
+                sendErrorEmail(event, context);
+            }
+        } catch (MessagingException e) {
+            getLogger().error("Error sending error email: " + e.getMessage(), e);
+        }
+
+        return Error;
     }
 
+        // Method to check if the event is an error
+        private boolean ErrorEvent(String eventType, String details, String relationship) {
+            if ("DROP".equals(eventType) && "Auto-terminated".equalsIgnoreCase(details) &&
+                    (relationship != null && (relationship.equals("Invalid") || relationship.equals("Unmatched") || relationship.equals("No retry")))) {
+                return true;
+            }
+            return false;
+        }
+    // Method to send an error email
+
     // TODO this does not apply to a reporting task, to be ported
-    public void onTrigger(final ProcessContext context, final ProcessSession session) {
+
+    public void sendErrorEmail(Map<String, Object> event ,final ProcessContext context,final ProcessSession session) throws MessagingException{
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
         }
+       // Construct the error message
+        String errorMessage = "An error occurred in the event:\n"
+                + "Event Type: " + event.get("event_type") + "\n"
+                + "Details: " + event.get("details") + "\n"
+                + "Relationship: " + event.get("relationship");
+
+        // Create a new email message for the error notification
 
         final Properties properties = this.getMailPropertiesFromFlowFile(context, flowFile);
         final Session mailSession = this.createMailSession(properties);
@@ -491,3 +527,5 @@ public class EmailProvenanceReporter extends AbstractProvenanceReporter {
         Transport.send(msg);
     }
 }
+
+

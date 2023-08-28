@@ -72,9 +72,10 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
         getLogger().info("{} {} {}", response.code(), response.message(), response.body().string());
     }
 
-    public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
+    public boolean indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
         final String url = context.getProperty(URL).getValue();
         final String json = new ObjectMapper().writeValueAsString(event);
         post(json, url);
+        return false;
     }
 }
