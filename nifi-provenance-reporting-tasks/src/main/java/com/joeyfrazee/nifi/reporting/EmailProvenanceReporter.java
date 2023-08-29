@@ -9,7 +9,6 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
 
@@ -409,8 +408,8 @@ public class EmailProvenanceReporter extends AbstractProvenanceReporter {
     }
 
     @Override
-    public boolean indexEvent(Map<String, Object> event, ReportingContext context) throws IOException {
-        // TODO
+    public boolean indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
+
         //Code to extract information from the provenance event
         String eventType = (String) event.get("event_type");
         String details = (String) event.get("details");
@@ -421,16 +420,17 @@ public class EmailProvenanceReporter extends AbstractProvenanceReporter {
         // Send the email message when there is an error event
         try {
             if (Error) {
-                sendErrorEmail(event, context);
+                
+                sendErrorEmail(event ,context);
             }
-        } catch (MessagingException e) {
+        } catch (IOException e) {
             getLogger().error("Error sending error email: " + e.getMessage(), e);
         }
 
         return Error;
     }
 
-        // Method to check if the event is an error
+    // Method to check if the event is an error
         private boolean ErrorEvent(String eventType, String details, String relationship) {
             if ("DROP".equals(eventType) && "Auto-terminated".equalsIgnoreCase(details) &&
                     (relationship != null && (relationship.equals("Invalid") || relationship.equals("Unmatched") || relationship.equals("No retry")))) {
@@ -442,7 +442,7 @@ public class EmailProvenanceReporter extends AbstractProvenanceReporter {
 
     // TODO this does not apply to a reporting task, to be ported
 
-    public void sendErrorEmail(Map<String, Object> event ,final ProcessContext context,final ProcessSession session) throws MessagingException{
+    public void sendErrorEmail(Map<String, Object> event , ProcessContext context, ProcessSession session) throws MessagingException{
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
