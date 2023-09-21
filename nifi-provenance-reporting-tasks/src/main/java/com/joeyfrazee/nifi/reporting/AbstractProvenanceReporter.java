@@ -46,7 +46,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
             "Start reading provenance Events from the end of the stream, ignoring old events");
 
     static final List<String> DEFAULT_DETAILS_AS_ERROR = Arrays.asList(
-            "Auto-Terminated by failure Relationship"
+            "Auto-Terminated by Failure Relationship", "Auto-Terminated by No Retry Relationship"
     );
 
     static final PropertyDescriptor START_POSITION = new PropertyDescriptor.Builder().name("start-position")
@@ -64,13 +64,22 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
     static final PropertyDescriptor DETAILS_AS_ERROR = new PropertyDescriptor.Builder().name("details-as-error")
             .displayName("Details as error")
             .description("Specifies a comma-separated list of details messages in the provenance event "
-                    + "that will be considered as errors")
+                    + "that will be considered as errors (comparison is case-insensitive)")
             .defaultValue(String.join(",", DEFAULT_DETAILS_AS_ERROR))
             .addValidator(StandardValidators.createListValidator(true, true, StandardValidators.NON_BLANK_VALIDATOR)).build();
+
+    static final PropertyDescriptor NIFI_URL = new PropertyDescriptor.Builder().name("nifi-url")
+            .displayName("NiFi URL")
+            .description("Specifies the URL of the current NiFi instance. It is later used to create links pointing "
+                    + "to specific processors and process groups")
+            .defaultValue("https://localhost:443")
+            .addValidator(StandardValidators.URL_VALIDATOR).build();
 
     protected List<PropertyDescriptor> descriptors;
 
     private volatile ProvenanceEventConsumer consumer;
+
+    final SimpleDateFormat sdf = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
     @Override
     public List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -78,6 +87,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         descriptors.add(START_POSITION);
         descriptors.add(BATCH_SIZE);
         descriptors.add(DETAILS_AS_ERROR);
+        descriptors.add(NIFI_URL);
         return descriptors;
     }
 
@@ -95,21 +105,23 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
         createConsumer(context);
 
         final List<String> detailsAsError =
-                Arrays.asList(context.getProperty(DETAILS_AS_ERROR).getValue().split(","));
+                Arrays.asList(context.getProperty(DETAILS_AS_ERROR).getValue().toLowerCase().split(","));
+        final String nifiUrl = context.getProperty(NIFI_URL).getValue();
 
         consumer.consumeEvents(context, ((componentMapHolder, provenanceEventRecords) -> {
             getLogger().debug("Starting to consume events");
             for (final ProvenanceEventRecord e: provenanceEventRecords) {
                 getLogger().debug("Processing provenance event: {}", e.getEventId());
                 final Map<String, Object> source = new HashMap<>();
-                final SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
-                source.put("@timestamp", ft.format(new Date()));
+                source.put("@timestamp", sdf.format(new Date()));
                 source.put("event_id", e.getEventId());
                 source.put("event_time", new Date(e.getEventTime()));
                 source.put("entry_date", new Date(e.getFlowFileEntryDate()));
                 source.put("lineage_start_date", new Date(e.getLineageStartDate()));
                 source.put("file_size", e.getFileSize());
+
+                e.getContentClaimContainer();
 
                 final String componentName = componentMapHolder.getComponentName(e.getComponentId());
                 final String processGroupId = componentMapHolder.getProcessGroupId(e.getComponentId(),
@@ -138,6 +150,10 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
                 final String componentId = e.getComponentId();
                 if (componentId != null) {
                     source.put("component_id", componentId);
+                    source.put(
+                        "component_url",
+                        nifiUrl + "?processGroupId=" + processGroupId + "&componentsIds=" + componentId
+                    );
                 }
 
                 final String componentType = e.getComponentType();
@@ -170,7 +186,7 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
                     source.put("details", details);
                 }
 
-                if (detailsAsError.contains(details))
+                if (details != null && detailsAsError.contains(details.toLowerCase()))
                     source.put("status", "Error");
                 else
                     source.put("status", "Info");
@@ -185,15 +201,26 @@ public abstract class AbstractProvenanceReporter extends AbstractReportingTask {
                     source.put("source_queue_id", sourceQueueId);
                 }
 
-                final Map<String, String> attributes = new HashMap<>();
-
                 final Map<String, String> updatedAttributes = e.getUpdatedAttributes();
                 if (updatedAttributes != null && !updatedAttributes.isEmpty()) {
-                    getLogger().debug("Adding updated attributes: {}", updatedAttributes);
-                    attributes.putAll(updatedAttributes);
+                    source.put("updatedAttributes", updatedAttributes);
                 }
 
-                source.put("attributes", attributes);
+                final Map<String, String> previousAttributes = e.getPreviousAttributes();
+                if (previousAttributes != null && !previousAttributes.isEmpty()) {
+                    source.put("previousAttributes", previousAttributes);
+                }
+
+                // TO get URL Prefix, we just remove the /nifi from the end of the URL
+                final String urlPrefix = nifiUrl.substring(0, nifiUrl.length() - "/nifi".length());
+                final String downloadContentUri = urlPrefix + "/nifi-api/provenance-events/" + e.getEventId() + "/content";
+                source.put("download_input_content_uri", downloadContentUri + "/input");
+                source.put("download_output_content_uri", downloadContentUri + "/output");
+                final String viewContentUri =
+                    urlPrefix + "/nifi-content-viewer/" +
+                    "?ref=" + urlPrefix + "/nifi-api/provenance-events/" + e.getEventId() + "/content";
+                source.put("view_input_content_uri", viewContentUri + "/input");
+                source.put("view_output_content_uri", viewContentUri + "/output");
 
                 try {
                     indexEvent(source, context);
