@@ -16,30 +16,20 @@
  */
 package com.joeyfrazee.nifi.reporting;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseBody;
-
-import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.*;
-import org.apache.nifi.controller.ConfigurationContext;
-import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import com.squareup.okhttp.*;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"http", "provenance"})
 @CapabilityDescription("A provenance reporting task that posts to an HTTP server")
@@ -54,7 +44,7 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
-    private AtomicReference<OkHttpClient> client = new AtomicReference<OkHttpClient>();
+    private final AtomicReference<OkHttpClient> client = new AtomicReference<>();
 
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -79,7 +69,7 @@ public class HttpProvenanceReporter extends AbstractProvenanceReporter {
             .post(body)
             .build();
         Response response = getHttpClient().newCall(request).execute();
-        getLogger().info("{} {} {}", new Object[]{Integer.valueOf(response.code()), response.message(), response.body().string()});
+        getLogger().info("{} {} {}", response.code(), response.message(), response.body().string());
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {

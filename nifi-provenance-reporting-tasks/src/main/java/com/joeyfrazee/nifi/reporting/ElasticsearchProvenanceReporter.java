@@ -16,22 +16,27 @@
  */
 package com.joeyfrazee.nifi.reporting;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
-import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.*;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
+import org.apache.http.HttpHost;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.ReportingContext;
+import org.elasticsearch.client.RestClient;
 
-import io.searchbox.core.*;
-import io.searchbox.client.*;
-import io.searchbox.client.config.*;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Tags({"elasticsearch", "provenance"})
 @CapabilityDescription("A provenance reporting task that writes to Elasticsearch")
@@ -50,30 +55,25 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
             .displayName("Index")
             .description("The name of the Elasticsearch index")
             .required(true)
-            .expressionLanguageSupported(true)
+            .defaultValue("nifi")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-    public static final PropertyDescriptor ELASTICSEARCH_DOC_TYPE = new PropertyDescriptor
-            .Builder().name("Document Type")
-            .displayName("Document Type")
-            .description("The type of documents to insert into the index")
-            .required(true)
-            .expressionLanguageSupported(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
+    private final Map<String, ElasticsearchClient> esClients = new HashMap<>();
 
-    private JestClient getJestClient(String elasticsearch) {
-        JestClientFactory factory = new JestClientFactory();
+    private ElasticsearchClient getElasticsearchClient(String elasticsearchUrl) throws MalformedURLException {
+        if (esClients.containsKey(elasticsearchUrl))
+            return esClients.get(elasticsearchUrl);
 
-        factory.setHttpClientConfig(
-            new HttpClientConfig.Builder(elasticsearch)
-                .multiThreaded(true)
-                .build()
-        );
+        URL url = new URL(elasticsearchUrl);
+        RestClient restClient = RestClient.builder(new HttpHost(url.getHost(), url.getPort())).build();
 
-        JestClient client = factory.getObject();
+        // Create the transport with a Jackson mapper
+        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
 
+        ElasticsearchClient client = new ElasticsearchClient(transport);
+        esClients.put(elasticsearchUrl, client);
         return client;
     }
 
@@ -82,21 +82,24 @@ public class ElasticsearchProvenanceReporter extends AbstractProvenanceReporter 
         descriptors = super.getSupportedPropertyDescriptors();
         descriptors.add(ELASTICSEARCH_URL);
         descriptors.add(ELASTICSEARCH_INDEX);
-        descriptors.add(ELASTICSEARCH_DOC_TYPE);
         return descriptors;
     }
 
     public void indexEvent(final Map<String, Object> event, final ReportingContext context) throws IOException {
         final String elasticsearchUrl = context.getProperty(ELASTICSEARCH_URL).getValue();
         final String elasticsearchIndex = context.getProperty(ELASTICSEARCH_INDEX).evaluateAttributeExpressions().getValue();
-        final String elasticsearchType = context.getProperty(ELASTICSEARCH_DOC_TYPE).evaluateAttributeExpressions().getValue();
-        final JestClient client = getJestClient(elasticsearchUrl);
+        final ElasticsearchClient client = getElasticsearchClient(elasticsearchUrl);
         final String id = Long.toString((Long) event.get("event_id"));
-        final Index index = new Index.Builder(event)
-            .index(elasticsearchIndex)
-            .type(elasticsearchType)
-            .id(id)
-            .build();
-        client.execute(index);
+        final IndexRequest<Map<String, Object>> indexRequest = new
+                IndexRequest.Builder<Map<String, Object>>()
+                .index(elasticsearchIndex)
+                .id(id)
+                .document(event)
+                .build();
+        try {
+            client.index(indexRequest);
+        } catch (ElasticsearchException ex) {
+            getLogger().error("Error while indexing event {}", id, ex);
+        }
     }
 }
